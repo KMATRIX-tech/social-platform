@@ -18,6 +18,8 @@ import { CrystalBadge } from './CrystalBadge';
 import { VideoPlayer } from './VideoPlayer';
 import { SongPlayerCard } from './SongPlayerCard';
 import { SparkTray } from './SparkTray';
+import { AdsterraAdBanner } from './AdsterraAdBanner';
+import { shouldShowAds } from './AdsterraManager';
 import {
   Heart,
   MessageCircle,
@@ -145,7 +147,10 @@ export const FeedView: React.FC<FeedViewProps> = ({
   onClearFilterTag
 }) => {
   const { currentUser, userProfile, isAdmin, isProEffective, toggleSavePost } = useAuth();
-  const isProUser = isProEffective;
+
+  // Ads Rule: HIDE if user.isPro === true, user has Blue Star, or user is admin. SHOW only to regular free users.
+  const showAds = shouldShowAds(userProfile, isAdmin, isProEffective);
+  const isProUser = !showAds;
 
   const [posts, setPosts] = useState<Post[]>([]);
   const [latestAnnouncement, setLatestAnnouncement] = useState<Announcement | null>(null);
@@ -1138,35 +1143,12 @@ export const FeedView: React.FC<FeedViewProps> = ({
               })
             )}
 
-            {/* Designated In-Feed Native Ad Placement Unit Container (Ad Integration Ready) */}
-            {!isProUser && (
-              <div className="w-full my-4 rounded-xl border border-slate-800 bg-slate-900/50 p-4 overflow-hidden text-slate-200 shadow-md">
-                <div className="flex items-center justify-between mb-2">
-                  <div className="flex items-center gap-2">
-                    <span className="px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-wider bg-slate-800 text-amber-400 border border-slate-700">
-                      Sponsored
-                    </span>
-                    <span className="text-xs font-bold text-white">WaveLink Native Ad Placement</span>
-                  </div>
-                  <span className="text-[10px] text-slate-500 font-mono">Ad Slot</span>
-                </div>
-                <p className="text-xs text-slate-400 mb-3 leading-relaxed break-words">
-                  Target active creators and mobile money users across East Africa. High-converting native in-feed unit with direct AzamPay & Airtel Money integration.
-                </p>
-                <div className="flex items-center justify-between pt-2 border-t border-slate-800/80">
-                  <span className="text-[11px] text-purple-400 font-mono font-semibold">10,000 TZS / day</span>
-                  {onNavigateTab && (
-                    <button
-                      onClick={() => onNavigateTab('monetization')}
-                      className="text-xs font-bold text-amber-400 hover:text-amber-300 flex items-center gap-1 transition"
-                    >
-                      <span>Reserve Slot</span>
-                      <ExternalLink size={12} />
-                    </button>
-                  )}
-                </div>
-              </div>
-            )}
+            {/* Adsterra Native In-Feed Banner (Visible only for free users, instant auto-hide when upgrading to Pro) */}
+            <AdsterraAdBanner
+              variant="feed"
+              slotId="feed_bottom"
+              onOpenUpgradeModal={() => setIsPaymentModalOpen(true)}
+            />
           </div>
 
           {/* Legal Footer for Privacy, Terms & Refund policies */}

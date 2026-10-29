@@ -26,6 +26,8 @@ import { SettingsView } from './components/SettingsView';
 import { CreatorAnalyticsView } from './components/CreatorAnalyticsView';
 import { MonetizationHub } from './components/MonetizationHub';
 import { CallingModal } from './components/CallingModal';
+import { AdsterraManager } from './components/AdsterraManager';
+import { AdsterraAdBanner } from './components/AdsterraAdBanner';
 import { Waves } from 'lucide-react';
 
 function MainApp() {
@@ -168,6 +170,15 @@ function MainApp() {
           onClose={() => setActiveCall(null)}
         />
       )}
+
+      {/* Global Adsterra Script & Ad Unit Lifecycle Controller (Hidden for Pro, Blue Star & Admin) */}
+      <AdsterraManager />
+
+      {/* Adsterra Social Bar Banner (Visible only for free users, instant auto-hide when upgrading to Pro) */}
+      <AdsterraAdBanner
+        variant="social_bar"
+        onOpenUpgradeModal={() => setActiveTab('monetization')}
+      />
     </div>
   );
 }

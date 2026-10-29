@@ -4,6 +4,7 @@ import { useTheme } from '../context/ThemeContext';
 import { CrystalBadge } from './CrystalBadge';
 import { ActiveTab } from '../types';
 import { PWAInstallButton } from './PWAInstallButton';
+import { AdsterraAdBanner } from './AdsterraAdBanner';
 import {
   Waves,
   Rss,
@@ -179,6 +180,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <span className="text-[10px] text-emerald-400 font-bold bg-emerald-950/60 px-2 py-0.5 rounded-full">VIP</span>
           </div>
         )}
+
+        {/* Adsterra Sidebar Sponsored Banner (Free Users Only - hidden if Pro, Blue Star, or Admin) */}
+        <AdsterraAdBanner
+          variant="sidebar"
+          onOpenUpgradeModal={() => handleSelectTab('monetization')}
+        />
 
         {/* PWA Install Button */}
         <div className="pt-2">

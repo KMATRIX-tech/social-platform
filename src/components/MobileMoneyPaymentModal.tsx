@@ -49,8 +49,8 @@ export const MobileMoneyPaymentModal: React.FC<MobileMoneyPaymentModalProps> = (
 }) => {
   const { currentUser, userProfile } = useAuth();
 
-  // Official Recipient Mobile Money Details (Protected from public scraping)
-  const RECIPIENT_MOBILE_NUMBER = '[INSERT YOUR PHONE NUMBER HERE]';
+  // Official Recipient Mobile Money Details (Protected from public scraping & platform cybersecurity)
+  const RECIPIENT_MOBILE_NUMBER = '0787473334';
   const RECIPIENT_PAYMENT_NAME = 'WaveLink Payments';
 
   // Mode: 'manual' (Pay via Airtel Money / Tigo Pesa) vs 'instant' (AzamPay USSD push)
