@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { db, handleFirestoreError, OperationType, ADMIN_EMAIL, cleanFirestoreData } from '../firebase';
+import { db, handleFirestoreError, OperationType, ADMIN_EMAIL, cleanFirestoreData, firebaseConfig } from '../firebase';
 import {
   collection,
   onSnapshot,
@@ -899,7 +899,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onReturnToFeed }
               </div>
 
               <a
-                href="https://console.firebase.google.com/project/red-bonito-16tvw/authentication/settings"
+                href={`https://console.firebase.google.com/project/${firebaseConfig.projectId}/authentication/settings`}
                 target="_blank"
                 rel="noreferrer"
                 className="px-4 py-2 rounded-xl bg-teal-600 hover:bg-teal-500 text-white font-extrabold text-xs flex items-center gap-1.5 transition shadow-sm"

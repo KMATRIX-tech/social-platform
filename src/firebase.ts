@@ -1,7 +1,14 @@
 import { initializeApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
 import { initializeFirestore, doc, getDocFromServer } from 'firebase/firestore';
-import firebaseConfig from '../firebase-applet-config.json';
+export const firebaseConfig = {
+  apiKey: "AIzaSyALKX8B-W86GCjdKYu7hZ_kpoBFL_eCJqI",
+  authDomain: "formal-photon-n48x0.firebaseapp.com",
+  projectId: "formal-photon-n48x0",
+  storageBucket: "formal-photon-n48x0.firebasestorage.app",
+  messagingSenderId: "330199068484",
+  appId: "1:330199068484:web:5376c71f8157d471e8f111"
+};
 
 const app = initializeApp(firebaseConfig);
 
@@ -11,7 +18,7 @@ export const db = initializeFirestore(
   {
     experimentalForceLongPolling: true,
   },
-  firebaseConfig.firestoreDatabaseId
+  'ai-studio-remixremixwaveli-0bcdbee7-e3d1-46ba-ab1a-3448613d34ac'
 );
 
 export const auth = getAuth(app);
