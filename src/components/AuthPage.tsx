@@ -1,0 +1,615 @@
+import React, { useState } from 'react';
+import {
+  GoogleAuthProvider,
+  signInWithPopup,
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  updateProfile as fbUpdateProfile
+} from 'firebase/auth';
+import { auth, ADMIN_EMAIL, isOwnerEmail } from '../firebase';
+import { useAuth } from '../context/AuthContext';
+import {
+  Waves,
+  Mail,
+  Lock,
+  User,
+  AtSign,
+  ArrowRight,
+  Sparkles,
+  ShieldCheck,
+  AlertCircle,
+  Copy,
+  Check,
+  ExternalLink,
+  Crown,
+  Eye,
+  EyeOff,
+  UserPlus,
+  LogIn
+} from 'lucide-react';
+
+export const AuthPage: React.FC = () => {
+  const { quickSignIn } = useAuth();
+  
+  // Tab state: 'signin' | 'signup'
+  const [authMode, setAuthMode] = useState<'signin' | 'signup'>('signin');
+
+  // Form fields
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [displayName, setDisplayName] = useState('');
+  const [username, setUsername] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+
+  // Status & feedback
+  const [statusMessage, setStatusMessage] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
+
+  // Domain whitelist guide modal state
+  const [showDomainGuide, setShowDomainGuide] = useState(false);
+  const [copiedDomain, setCopiedDomain] = useState(false);
+
+  const currentDomain = typeof window !== 'undefined' ? window.location.hostname : '';
+  const firebaseProjectId = 'red-bonito-16tvw';
+  const firebaseAuthSettingsUrl = `https://console.firebase.google.com/project/${firebaseProjectId}/authentication/settings`;
+
+  const copyToClipboard = (text: string) => {
+    if (navigator?.clipboard?.writeText) {
+      navigator.clipboard.writeText(text);
+      setCopiedDomain(true);
+      setTimeout(() => setCopiedDomain(false), 2500);
+    }
+  };
+
+  /**
+   * 1. Built-in Firebase Google Sign-In via signInWithPopup(auth, googleProvider)
+   */
+  const handleGoogleSignIn = async () => {
+    setError(null);
+    setStatusMessage('Connecting to Google...');
+    setIsGoogleLoading(true);
+
+    try {
+      const googleProvider = new GoogleAuthProvider();
+      googleProvider.setCustomParameters({ prompt: 'select_account' });
+      await signInWithPopup(auth, googleProvider);
+      setStatusMessage('Signed in successfully! Loading your profile...');
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      if (msg.includes('auth/unauthorized-domain')) {
+        setShowDomainGuide(true);
+        setError(
+          `Google Sign-In blocked: Current preview domain (${currentDomain}) is not yet in Firebase Authorized Domains. Sign in or sign up with email & password below!`
+        );
+      } else if (!msg.includes('auth/popup-closed-by-user') && !msg.includes('auth/cancelled-popup-request')) {
+        setError(msg.replace('Firebase: ', ''));
+      }
+      setStatusMessage(null);
+    } finally {
+      setIsGoogleLoading(false);
+    }
+  };
+
+  /**
+   * 2. Built-in Firebase Email & Password Form Handler
+   * Explicitly supports both Signing Up (creating a new account) and Signing In
+   */
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const cleanEmail = email.trim();
+    if (!cleanEmail) {
+      setError('Please enter your email address.');
+      return;
+    }
+    if (password.length < 6) {
+      setError('Password must be at least 6 characters.');
+      return;
+    }
+
+    setError(null);
+    setIsLoading(true);
+
+    if (authMode === 'signup') {
+      // ==========================================
+      // SIGN UP: Built-in Firebase User Creation
+      // ==========================================
+      const name = displayName.trim() || cleanEmail.split('@')[0];
+      setStatusMessage('Creating your WaveLink account with Firebase...');
+
+      try {
+        const res = await createUserWithEmailAndPassword(auth, cleanEmail, password);
+        await fbUpdateProfile(res.user, {
+          displayName: name
+        });
+        setStatusMessage('Welcome to WaveLink! Opening your dashboard...');
+      } catch (err: any) {
+        const code = err?.code || '';
+        const msg = err?.message || String(err);
+
+        if (code === 'auth/email-already-in-use') {
+          setError('An account with this email already exists. Switching to Sign In...');
+          setAuthMode('signin');
+        } else if (code === 'auth/weak-password') {
+          setError('Password is too weak. Please use at least 6 characters.');
+        } else if (code === 'auth/invalid-email') {
+          setError('Please enter a valid email address.');
+        } else {
+          setError(msg.replace('Firebase: ', ''));
+        }
+        setStatusMessage(null);
+      } finally {
+        setIsLoading(false);
+      }
+    } else {
+      // ==========================================
+      // SIGN IN: Built-in Firebase Sign In
+      // ==========================================
+      setStatusMessage('Signing in to your WaveLink account...');
+
+      try {
+        await signInWithEmailAndPassword(auth, cleanEmail, password);
+        setStatusMessage('Welcome back! Logging you in...');
+      } catch (err: any) {
+        const code = err?.code || '';
+        const msg = err?.message || String(err);
+
+        if (
+          code === 'auth/user-not-found' ||
+          code === 'auth/invalid-credential' ||
+          msg.includes('user-not-found') ||
+          msg.includes('invalid-credential')
+        ) {
+          // Offer seamless auto-registration or switch to signup
+          setStatusMessage('No account found. Automatically registering your new account with Firebase...');
+          try {
+            const createRes = await createUserWithEmailAndPassword(auth, cleanEmail, password);
+            const name = displayName.trim() || cleanEmail.split('@')[0];
+            await fbUpdateProfile(createRes.user, { displayName: name });
+            setStatusMessage('Account created successfully! Welcome to WaveLink 🌊');
+            return;
+          } catch (createErr: any) {
+            const createCode = createErr?.code || '';
+            const createMsg = createErr?.message || String(createErr);
+
+            if (createCode === 'auth/email-already-in-use') {
+              setError('Incorrect password for this account. Please try again.');
+            } else if (createCode === 'auth/weak-password') {
+              setError('Password is too weak. Must be at least 6 characters.');
+            } else {
+              setError(createMsg.replace('Firebase: ', ''));
+            }
+            setStatusMessage(null);
+            return;
+          }
+        } else if (code === 'auth/wrong-password') {
+          setError('Incorrect password. Please verify your password and try again.');
+          setStatusMessage(null);
+        } else if (code === 'auth/too-many-requests') {
+          setError('Too many attempts. Please wait a minute and try again.');
+          setStatusMessage(null);
+        } else if (code === 'auth/invalid-email') {
+          setError('Please enter a valid email address.');
+          setStatusMessage(null);
+        } else {
+          setError(msg.replace('Firebase: ', ''));
+          setStatusMessage(null);
+        }
+      } finally {
+        setIsLoading(false);
+      }
+    }
+  };
+
+  /**
+   * Quick Owner fill & sign-in for Keylan (Platform Owner)
+   */
+  const handleOwnerQuickAccess = async () => {
+    setEmail(ADMIN_EMAIL);
+    setPassword('WaveLinkAdmin2025!');
+    setDisplayName('Keylan Mbilinyi (Platform Owner)');
+    setUsername('keylan');
+    setError(null);
+    setStatusMessage('Signing in as Platform Owner (Keylan)...');
+    setIsLoading(true);
+
+    try {
+      await quickSignIn(
+        ADMIN_EMAIL,
+        'WaveLinkAdmin2025!',
+        'Keylan Mbilinyi (Platform Owner)',
+        '@keylan'
+      );
+    } catch (err: any) {
+      console.log('Owner quick sign-in ready in form:', err);
+      // If error, values are populated in the form for 1-click submit
+      setStatusMessage('Owner credentials loaded into form. Click Sign In to proceed.');
+      setIsLoading(false);
+    }
+  };
+
+  return (
+    <div className="min-h-screen relative flex items-center justify-center p-4 sm:p-6 overflow-hidden bg-[#070A12] text-white">
+      {/* Dynamic ambient dark-mode teal & purple background glows */}
+      <div
+        className="absolute top-[-15%] left-[-15%] w-[600px] h-[600px] rounded-full bg-teal-500/15 blur-[120px] pointer-events-none animate-pulse"
+        style={{ animationDuration: '7s' }}
+      />
+      <div
+        className="absolute bottom-[-15%] right-[-15%] w-[650px] h-[650px] rounded-full bg-purple-600/20 blur-[130px] pointer-events-none"
+      />
+      <div
+        className="absolute top-[40%] right-[25%] w-[420px] h-[420px] rounded-full bg-indigo-500/15 blur-[100px] pointer-events-none"
+      />
+
+      {/* Main Container Card */}
+      <div className="relative w-full max-w-md z-10">
+        {/* Brand header */}
+        <div className="text-center mb-6">
+          <div className="inline-flex items-center justify-center p-3.5 rounded-2xl bg-gradient-to-tr from-teal-500 via-indigo-600 to-purple-600 shadow-xl shadow-teal-950/40 mb-3 ring-1 ring-white/20">
+            <Waves className="w-8 h-8 text-white animate-bounce" style={{ animationDuration: '3s' }} />
+          </div>
+          <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight bg-gradient-to-r from-teal-200 via-white to-purple-200 bg-clip-text text-transparent">
+            WaveLink
+          </h1>
+          <p className="mt-1 text-xs sm:text-sm text-slate-400 font-medium">
+            Connect, Share, and Discover on Africa&apos;s Social Network
+          </p>
+        </div>
+
+        {/* Unified Glassmorphism Card */}
+        <div className="bg-slate-900/85 backdrop-blur-2xl border border-teal-500/20 rounded-3xl p-6 sm:p-8 shadow-2xl shadow-black/80">
+          {/* Mode Switcher Tabs: Sign In vs Sign Up */}
+          <div className="grid grid-cols-2 p-1 bg-slate-950/80 rounded-2xl border border-slate-800 mb-5">
+            <button
+              type="button"
+              onClick={() => {
+                setAuthMode('signin');
+                setError(null);
+                setStatusMessage(null);
+              }}
+              className={`py-2 px-3 rounded-xl text-xs sm:text-sm font-bold flex items-center justify-center gap-1.5 transition ${
+                authMode === 'signin'
+                  ? 'bg-gradient-to-r from-teal-500 to-indigo-600 text-white shadow-md'
+                  : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              <LogIn size={15} />
+              <span>Sign In</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setAuthMode('signup');
+                setError(null);
+                setStatusMessage(null);
+              }}
+              className={`py-2 px-3 rounded-xl text-xs sm:text-sm font-bold flex items-center justify-center gap-1.5 transition ${
+                authMode === 'signup'
+                  ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-md'
+                  : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              <UserPlus size={15} />
+              <span>Create Account</span>
+            </button>
+          </div>
+
+          <div className="mb-4 text-center">
+            <h2 className="text-base font-bold text-white flex items-center justify-center gap-2">
+              <Sparkles size={16} className={authMode === 'signup' ? 'text-pink-400' : 'text-teal-400'} />
+              <span>
+                {authMode === 'signup'
+                  ? 'Join WaveLink Community'
+                  : 'Welcome Back to WaveLink'}
+              </span>
+            </h2>
+            <p className="text-xs text-slate-400 mt-1">
+              {authMode === 'signup'
+                ? 'Sign up with built-in Firebase to create your verified profile'
+                : 'Sign in to access your feed, reels, and mobile money wallet'}
+            </p>
+          </div>
+
+          {/* Feedback messages */}
+          {error && (
+            <div className="mb-4 p-3 rounded-xl bg-rose-500/15 border border-rose-500/30 text-rose-300 text-xs flex items-start gap-2.5 animate-in fade-in">
+              <AlertCircle size={16} className="text-rose-400 shrink-0 mt-0.5" />
+              <div className="flex-1">
+                <span>{error}</span>
+                {error.includes('Authorized Domains') && (
+                  <button
+                    type="button"
+                    onClick={() => setShowDomainGuide(true)}
+                    className="block mt-1 text-[11px] underline text-teal-300 hover:text-white"
+                  >
+                    View Domain Whitelist Instructions
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
+
+          {statusMessage && !error && (
+            <div className="mb-4 p-3 rounded-xl bg-teal-500/15 border border-teal-500/30 text-teal-300 text-xs flex items-center gap-2 animate-in fade-in">
+              <div className="w-3.5 h-3.5 border-2 border-teal-300 border-t-transparent rounded-full animate-spin shrink-0" />
+              <span>{statusMessage}</span>
+            </div>
+          )}
+
+          {/* 1. Firebase Google Sign-In Button */}
+          <button
+            type="button"
+            onClick={handleGoogleSignIn}
+            disabled={isGoogleLoading || isLoading}
+            className="w-full py-3 px-4 rounded-xl bg-slate-950/80 hover:bg-slate-800/80 border border-slate-700/80 text-white font-semibold text-xs sm:text-sm flex items-center justify-center gap-3 transition shadow-md active:scale-[0.99] disabled:opacity-50"
+          >
+            {isGoogleLoading ? (
+              <div className="w-4 h-4 border-2 border-teal-400 border-t-transparent rounded-full animate-spin" />
+            ) : (
+              <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24">
+                <path
+                  fill="#4285F4"
+                  d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.665-5.17 3.665-9.17z"
+                />
+                <path
+                  fill="#34A853"
+                  d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.25v3.15C3.26 21.36 7.33 24 12 24z"
+                />
+                <path
+                  fill="#FBBC05"
+                  d="M5.28 14.27c-.25-.72-.38-1.49-.38-2.27s.13-1.55.38-2.27V6.58H1.25C.45 8.18 0 9.99 0 12s.45 3.82 1.25 5.42l4.03-3.15z"
+                />
+                <path
+                  fill="#EA4335"
+                  d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.33 0 3.26 2.64 1.25 6.58l4.03 3.15c.95-2.83 3.6-4.98 6.72-4.98z"
+                />
+              </svg>
+            )}
+            <span>Continue with Google</span>
+          </button>
+
+          <div className="flex items-center my-4">
+            <div className="flex-1 border-t border-slate-800" />
+            <span className="px-3 text-[10px] uppercase tracking-wider text-slate-500 font-semibold">
+              or with email &amp; password
+            </span>
+            <div className="flex-1 border-t border-slate-800" />
+          </div>
+
+          {/* 2. Built-in Firebase Sign In & Sign Up Form */}
+          <form onSubmit={handleSubmit} className="space-y-3.5">
+            {authMode === 'signup' && (
+              <>
+                <div>
+                  <label className="block text-xs font-medium text-slate-300 mb-1">
+                    Full Name / Display Name
+                  </label>
+                  <div className="relative">
+                    <User className="absolute left-3.5 top-3.5 text-pink-400/70" size={16} />
+                    <input
+                      type="text"
+                      required
+                      value={displayName}
+                      onChange={(e) => setDisplayName(e.target.value)}
+                      placeholder="e.g. Keylan Mbilinyi"
+                      className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-slate-950/70 border border-slate-800 text-white placeholder-slate-500 focus:outline-none focus:border-pink-500/60 focus:ring-2 focus:ring-pink-500/20 text-xs sm:text-sm transition"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-medium text-slate-300 mb-1">
+                    Username (optional)
+                  </label>
+                  <div className="relative">
+                    <AtSign className="absolute left-3.5 top-3.5 text-purple-400/70" size={16} />
+                    <input
+                      type="text"
+                      value={username}
+                      onChange={(e) => setUsername(e.target.value)}
+                      placeholder="e.g. keylan"
+                      className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-slate-950/70 border border-slate-800 text-white placeholder-slate-500 focus:outline-none focus:border-purple-500/60 focus:ring-2 focus:ring-purple-500/20 text-xs sm:text-sm transition"
+                    />
+                  </div>
+                </div>
+              </>
+            )}
+
+            <div>
+              <label className="block text-xs font-medium text-slate-300 mb-1">
+                Email Address
+              </label>
+              <div className="relative">
+                <Mail className="absolute left-3.5 top-3.5 text-teal-400/70" size={16} />
+                <input
+                  type="email"
+                  required
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="name@domain.com"
+                  className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-slate-950/70 border border-slate-800 text-white placeholder-slate-500 focus:outline-none focus:border-teal-500/60 focus:ring-2 focus:ring-teal-500/20 text-xs sm:text-sm transition"
+                />
+              </div>
+            </div>
+
+            <div>
+              <div className="flex items-center justify-between mb-1">
+                <label className="block text-xs font-medium text-slate-300">
+                  Password
+                </label>
+                <span className="text-[10px] text-slate-500">Min. 6 characters</span>
+              </div>
+              <div className="relative">
+                <Lock className="absolute left-3.5 top-3.5 text-purple-400/70" size={16} />
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  required
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="••••••••"
+                  minLength={6}
+                  className="w-full pl-10 pr-10 py-2.5 rounded-xl bg-slate-950/70 border border-slate-800 text-white placeholder-slate-500 focus:outline-none focus:border-purple-500/60 focus:ring-2 focus:ring-purple-500/20 text-xs sm:text-sm transition"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-3 text-slate-500 hover:text-slate-300 transition"
+                  title={showPassword ? 'Hide password' : 'Show password'}
+                >
+                  {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
+              </div>
+            </div>
+
+            <button
+              type="submit"
+              disabled={isLoading || isGoogleLoading}
+              className={`w-full mt-2 py-3 px-4 rounded-xl font-bold text-xs sm:text-sm text-white flex items-center justify-center gap-2 shadow-lg active:scale-[0.99] transition disabled:opacity-50 ${
+                authMode === 'signup'
+                  ? 'bg-gradient-to-r from-purple-600 via-indigo-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 shadow-purple-950/50'
+                  : 'bg-gradient-to-r from-teal-500 via-indigo-600 to-purple-600 hover:from-teal-400 hover:to-purple-500 shadow-teal-950/50'
+              }`}
+            >
+              {isLoading ? (
+                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+              ) : (
+                <>
+                  <span>{authMode === 'signup' ? 'Create WaveLink Account' : 'Sign In to WaveLink'}</span>
+                  <ArrowRight size={15} />
+                </>
+              )}
+            </button>
+          </form>
+
+          {/* Toggle between modes */}
+          <div className="mt-4 text-center">
+            {authMode === 'signin' ? (
+              <p className="text-xs text-slate-400">
+                Don&apos;t have an account yet?{' '}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAuthMode('signup');
+                    setError(null);
+                    setStatusMessage(null);
+                  }}
+                  className="text-pink-400 hover:text-pink-300 font-bold underline transition"
+                >
+                  Sign Up Here
+                </button>
+              </p>
+            ) : (
+              <p className="text-xs text-slate-400">
+                Already registered?{' '}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAuthMode('signin');
+                    setError(null);
+                    setStatusMessage(null);
+                  }}
+                  className="text-teal-400 hover:text-teal-300 font-bold underline transition"
+                >
+                  Sign In Here
+                </button>
+              </p>
+            )}
+          </div>
+
+          {/* Quick Helper for Platform Owner (Keylan) */}
+          <div className="mt-5 pt-4 border-t border-slate-800/80 flex items-center justify-between text-[11px] text-slate-400">
+            <button
+              type="button"
+              onClick={handleOwnerQuickAccess}
+              className="inline-flex items-center gap-1.5 text-teal-400 hover:text-teal-300 font-medium transition"
+              title="Quickly fill Platform Owner (Keylan) credentials"
+            >
+              <Crown size={12} className="text-amber-400" />
+              <span>Owner (Keylan) 1-Click Access</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setShowDomainGuide(true)}
+              className="text-slate-500 hover:text-slate-300 transition underline text-[10px]"
+            >
+              OAuth Domain Guide
+            </button>
+          </div>
+        </div>
+
+        {/* Footer credits */}
+        <p className="text-center text-[11px] text-slate-500 mt-6">
+          WaveLink © 2026. Empowering East African Creators.
+        </p>
+      </div>
+
+      {/* Domain Authorization Guide Modal */}
+      {showDomainGuide && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-xs animate-in fade-in">
+          <div className="relative w-full max-w-lg rounded-3xl bg-[#0e1424] border border-teal-500/30 p-6 text-white shadow-2xl space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+              <div className="flex items-center gap-2 text-teal-400 font-bold text-base">
+                <ShieldCheck size={20} />
+                <span>Google OAuth Domain Whitelist</span>
+              </div>
+              <button
+                onClick={() => setShowDomainGuide(false)}
+                className="p-1 rounded-lg bg-slate-800 text-slate-400 hover:text-white transition"
+              >
+                ✕
+              </button>
+            </div>
+
+            <p className="text-xs text-slate-300 leading-relaxed">
+              Google Sign-In uses Firebase Authentication. To permit Google popups on this preview URL, add this domain to your Firebase Authorized Domains:
+            </p>
+
+            {/* Current Domain Box with Copy button */}
+            <div className="p-3 rounded-2xl bg-slate-950 border border-slate-800 flex items-center justify-between gap-3">
+              <span className="text-xs font-mono text-teal-300 truncate">
+                {currentDomain}
+              </span>
+              <button
+                onClick={() => copyToClipboard(currentDomain)}
+                className="px-3 py-1.5 rounded-xl bg-teal-500/20 hover:bg-teal-500/30 text-teal-300 text-xs font-semibold flex items-center gap-1.5 shrink-0 transition"
+              >
+                {copiedDomain ? <Check size={14} className="text-emerald-400" /> : <Copy size={14} />}
+                <span>{copiedDomain ? 'Copied!' : 'Copy'}</span>
+              </button>
+            </div>
+
+            <div className="space-y-2 text-xs text-slate-400">
+              <p className="font-semibold text-slate-200">How to authorize in 30 seconds:</p>
+              <ol className="list-decimal list-inside space-y-1 pl-1">
+                <li>Open the Firebase Authentication Settings in your Firebase console.</li>
+                <li>Scroll to <strong>Authorized domains</strong>.</li>
+                <li>Click <strong>Add domain</strong> and paste the copied domain above.</li>
+              </ol>
+            </div>
+
+            <div className="flex items-center gap-3 pt-2">
+              <a
+                href={firebaseAuthSettingsUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="flex-1 py-2.5 px-3 rounded-xl bg-teal-600 hover:bg-teal-500 text-white font-bold text-xs flex items-center justify-center gap-1.5 transition"
+              >
+                <span>Open Firebase Console</span>
+                <ExternalLink size={14} />
+              </a>
+              <button
+                onClick={() => setShowDomainGuide(false)}
+                className="py-2.5 px-4 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-xs transition"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
