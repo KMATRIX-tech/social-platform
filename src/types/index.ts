@@ -339,4 +339,32 @@ export interface UserFollow {
   createdAt: string;
 }
 
+export interface PendingVerification {
+  id: string;
+  userId: string;
+  userEmail: string;
+  userName: string;
+  userPhotoURL?: string;
+  tierId: 'weekly' | 'monthly' | 'annual';
+  tierName: string;
+  amountTZS: number;
+  carrier: 'airtel' | 'tigopesa' | 'mpesa' | 'halopesa' | string;
+  transactionId: string;
+  phoneNumber?: string;
+  status: 'pending' | 'approved' | 'rejected';
+  submittedAt: string;
+  approvedAt?: string | null;
+  approvedBy?: string | null;
+  notes?: string;
+}
+
+export interface SystemDomain {
+  id: string;
+  domain: string;
+  url: string;
+  status: 'active' | 'needs_auth_whitelist';
+  lastSeenAt: string;
+  firstSeenAt: string;
+}
+
 

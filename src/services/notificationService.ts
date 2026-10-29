@@ -12,7 +12,7 @@ import {
 } from 'firebase/firestore';
 import { AppNotification, NotificationType, UserFollow } from '../types';
 
-interface SendNotificationParams {
+export interface SendNotificationParams {
   recipientId: string;
   type: NotificationType;
   title: string;
@@ -22,6 +22,8 @@ interface SendNotificationParams {
   actorName?: string;
   actorUsername?: string;
   actorPhotoURL?: string;
+  actorAvatar?: string;
+  actionUrl?: string;
 }
 
 /**
@@ -44,7 +46,7 @@ export async function sendNotification(params: SendNotificationParams): Promise<
       actorId,
       actorName: params.actorName || currentAuthUser?.displayName || 'A Waver',
       actorUsername: params.actorUsername || (currentAuthUser?.email ? `@${currentAuthUser.email.split('@')[0]}` : undefined),
-      actorPhotoURL: params.actorPhotoURL || currentAuthUser?.photoURL || undefined,
+      actorPhotoURL: params.actorPhotoURL || params.actorAvatar || currentAuthUser?.photoURL || undefined,
       type: params.type,
       title: params.title,
       body: params.body,

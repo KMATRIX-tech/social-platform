@@ -7,6 +7,7 @@ import {
   updateProfile as fbUpdateProfile
 } from 'firebase/auth';
 import { auth, ADMIN_EMAIL, isOwnerEmail } from '../firebase';
+import { recordSystemDomain } from '../services/verificationService';
 import { useAuth } from '../context/AuthContext';
 import {
   Waves,
@@ -16,11 +17,7 @@ import {
   AtSign,
   ArrowRight,
   Sparkles,
-  ShieldCheck,
   AlertCircle,
-  Copy,
-  Check,
-  ExternalLink,
   Crown,
   Eye,
   EyeOff,
@@ -47,24 +44,13 @@ export const AuthPage: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
 
-  // Domain whitelist guide modal state
-  const [showDomainGuide, setShowDomainGuide] = useState(false);
-  const [copiedDomain, setCopiedDomain] = useState(false);
-
-  const currentDomain = typeof window !== 'undefined' ? window.location.hostname : '';
-  const firebaseProjectId = 'red-bonito-16tvw';
-  const firebaseAuthSettingsUrl = `https://console.firebase.google.com/project/${firebaseProjectId}/authentication/settings`;
-
-  const copyToClipboard = (text: string) => {
-    if (navigator?.clipboard?.writeText) {
-      navigator.clipboard.writeText(text);
-      setCopiedDomain(true);
-      setTimeout(() => setCopiedDomain(false), 2500);
-    }
-  };
+  // Automatically record current domain in Firebase on mount for tracking
+  React.useEffect(() => {
+    recordSystemDomain().catch(() => {});
+  }, []);
 
   /**
-   * 1. Built-in Firebase Google Sign-In via signInWithPopup(auth, googleProvider)
+   * 1. Built-in Firebase Google Sign-In via standard signInWithPopup(auth, googleProvider)
    */
   const handleGoogleSignIn = async () => {
     setError(null);
@@ -78,12 +64,7 @@ export const AuthPage: React.FC = () => {
       setStatusMessage('Signed in successfully! Loading your profile...');
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
-      if (msg.includes('auth/unauthorized-domain')) {
-        setShowDomainGuide(true);
-        setError(
-          `Google Sign-In blocked: Current preview domain (${currentDomain}) is not yet in Firebase Authorized Domains. Sign in or sign up with email & password below!`
-        );
-      } else if (!msg.includes('auth/popup-closed-by-user') && !msg.includes('auth/cancelled-popup-request')) {
+      if (!msg.includes('auth/popup-closed-by-user') && !msg.includes('auth/cancelled-popup-request')) {
         setError(msg.replace('Firebase: ', ''));
       }
       setStatusMessage(null);
@@ -318,15 +299,6 @@ export const AuthPage: React.FC = () => {
               <AlertCircle size={16} className="text-rose-400 shrink-0 mt-0.5" />
               <div className="flex-1">
                 <span>{error}</span>
-                {error.includes('Authorized Domains') && (
-                  <button
-                    type="button"
-                    onClick={() => setShowDomainGuide(true)}
-                    className="block mt-1 text-[11px] underline text-teal-300 hover:text-white"
-                  >
-                    View Domain Whitelist Instructions
-                  </button>
-                )}
               </div>
             </div>
           )}
@@ -529,14 +501,6 @@ export const AuthPage: React.FC = () => {
               <Crown size={12} className="text-amber-400" />
               <span>Owner (Keylan) 1-Click Access</span>
             </button>
-
-            <button
-              type="button"
-              onClick={() => setShowDomainGuide(true)}
-              className="text-slate-500 hover:text-slate-300 transition underline text-[10px]"
-            >
-              OAuth Domain Guide
-            </button>
           </div>
         </div>
 
@@ -545,71 +509,6 @@ export const AuthPage: React.FC = () => {
           WaveLink © 2026. Empowering East African Creators.
         </p>
       </div>
-
-      {/* Domain Authorization Guide Modal */}
-      {showDomainGuide && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-xs animate-in fade-in">
-          <div className="relative w-full max-w-lg rounded-3xl bg-[#0e1424] border border-teal-500/30 p-6 text-white shadow-2xl space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-              <div className="flex items-center gap-2 text-teal-400 font-bold text-base">
-                <ShieldCheck size={20} />
-                <span>Google OAuth Domain Whitelist</span>
-              </div>
-              <button
-                onClick={() => setShowDomainGuide(false)}
-                className="p-1 rounded-lg bg-slate-800 text-slate-400 hover:text-white transition"
-              >
-                ✕
-              </button>
-            </div>
-
-            <p className="text-xs text-slate-300 leading-relaxed">
-              Google Sign-In uses Firebase Authentication. To permit Google popups on this preview URL, add this domain to your Firebase Authorized Domains:
-            </p>
-
-            {/* Current Domain Box with Copy button */}
-            <div className="p-3 rounded-2xl bg-slate-950 border border-slate-800 flex items-center justify-between gap-3">
-              <span className="text-xs font-mono text-teal-300 truncate">
-                {currentDomain}
-              </span>
-              <button
-                onClick={() => copyToClipboard(currentDomain)}
-                className="px-3 py-1.5 rounded-xl bg-teal-500/20 hover:bg-teal-500/30 text-teal-300 text-xs font-semibold flex items-center gap-1.5 shrink-0 transition"
-              >
-                {copiedDomain ? <Check size={14} className="text-emerald-400" /> : <Copy size={14} />}
-                <span>{copiedDomain ? 'Copied!' : 'Copy'}</span>
-              </button>
-            </div>
-
-            <div className="space-y-2 text-xs text-slate-400">
-              <p className="font-semibold text-slate-200">How to authorize in 30 seconds:</p>
-              <ol className="list-decimal list-inside space-y-1 pl-1">
-                <li>Open the Firebase Authentication Settings in your Firebase console.</li>
-                <li>Scroll to <strong>Authorized domains</strong>.</li>
-                <li>Click <strong>Add domain</strong> and paste the copied domain above.</li>
-              </ol>
-            </div>
-
-            <div className="flex items-center gap-3 pt-2">
-              <a
-                href={firebaseAuthSettingsUrl}
-                target="_blank"
-                rel="noreferrer"
-                className="flex-1 py-2.5 px-3 rounded-xl bg-teal-600 hover:bg-teal-500 text-white font-bold text-xs flex items-center justify-center gap-1.5 transition"
-              >
-                <span>Open Firebase Console</span>
-                <ExternalLink size={14} />
-              </a>
-              <button
-                onClick={() => setShowDomainGuide(false)}
-                className="py-2.5 px-4 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-xs transition"
-              >
-                Close
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };

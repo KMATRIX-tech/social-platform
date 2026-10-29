@@ -236,6 +236,43 @@
         "webhookSecret": { "type": "string" }
       },
       "required": ["id", "environment"]
+    },
+    "PendingVerification": {
+      "title": "PendingVerification",
+      "description": "Manual mobile money payment verification requests with SMS transaction IDs",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "userEmail": { "type": "string" },
+        "userName": { "type": "string" },
+        "userPhotoURL": { "type": "string" },
+        "tierId": { "type": "string", "enum": ["weekly", "monthly", "annual"] },
+        "tierName": { "type": "string" },
+        "amountTZS": { "type": "number" },
+        "carrier": { "type": "string" },
+        "transactionId": { "type": "string", "maxLength": 100 },
+        "phoneNumber": { "type": "string" },
+        "status": { "type": "string", "enum": ["pending", "approved", "rejected"] },
+        "submittedAt": { "type": "string" },
+        "approvedAt": { "type": "string" },
+        "approvedBy": { "type": "string" }
+      },
+      "required": ["id", "userId", "transactionId", "amountTZS", "status", "submittedAt"]
+    },
+    "SystemDomain": {
+      "title": "SystemDomain",
+      "description": "Registered preview and production domains for OAuth whitelisting",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "domain": { "type": "string" },
+        "url": { "type": "string" },
+        "status": { "type": "string", "enum": ["active", "needs_auth_whitelist"] },
+        "lastSeenAt": { "type": "string" },
+        "firstSeenAt": { "type": "string" }
+      },
+      "required": ["id", "domain", "status", "lastSeenAt"]
     }
   },
   "firestore": {
@@ -294,6 +331,14 @@
     "/paymentConfig/{configId}": {
       "schema": { "$ref": "#/entities/PaymentGatewayConfig" },
       "description": "Admin-only payment gateway credentials"
+    },
+    "/pending_verifications/{verificationId}": {
+      "schema": { "$ref": "#/entities/PendingVerification" },
+      "description": "Manual mobile money subscription verifications pending admin approval"
+    },
+    "/system_domains/{domainId}": {
+      "schema": { "$ref": "#/entities/SystemDomain" },
+      "description": "Registered preview and production domains for OAuth authorized domains configuration"
     }
   }
 }

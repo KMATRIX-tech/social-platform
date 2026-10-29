@@ -41,7 +41,7 @@ service cloud.firestore {
     match /users/{userId} {
       allow read: if isSignedIn();
       allow create: if isOwner(userId);
-      allow update: if (isOwner(userId) && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['isSubAdmin', 'role']))) || isSuperAdmin() || (isAdmin() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'warningMessage', 'isBanned', 'updatedAt']));
+      allow update: if (isOwner(userId) && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['isSubAdmin', 'role']))) || isSuperAdmin() || (isAdmin() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'warningMessage', 'isBanned', 'isPro', 'hasBlueStar', 'proPlan', 'proExpiresAt', 'proBadge', 'proBorderEffect', 'proAccentColor', 'updatedAt']));
       allow delete: if isSuperAdmin();
     }
 
@@ -168,6 +168,20 @@ service cloud.firestore {
       allow read: if isSignedIn();
       allow create: if isSignedIn() && request.resource.data.followerId == request.auth.uid;
       allow delete: if isSignedIn() && (resource.data.followerId == request.auth.uid || isAdmin());
+    }
+
+    // Manual Mobile Money Transaction Verifications for WaveLink Pro
+    match /pending_verifications/{verificationId} {
+      allow read: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
+      allow update, delete: if isAdmin();
+    }
+
+    // System Domains for OAuth Whitelisting tracking
+    match /system_domains/{domainId} {
+      allow read: if true;
+      allow create, update: if true;
+      allow delete: if isAdmin();
     }
   }
 }

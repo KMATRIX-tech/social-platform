@@ -9,7 +9,8 @@ import {
   setDoc,
   deleteDoc
 } from 'firebase/firestore';
-import { UserProfile, Post, SupportTicket, AppSettings, PaymentGatewayConfig } from '../types';
+import { UserProfile, Post, SupportTicket, AppSettings, PaymentGatewayConfig, PendingVerification, SystemDomain } from '../types';
+import { approveVerification, rejectVerification } from '../services/verificationService';
 import { CrystalBadge } from './CrystalBadge';
 import {
   ShieldAlert,
@@ -41,7 +42,13 @@ import {
   Crown,
   UserPlus,
   UserMinus,
-  Loader2
+  Loader2,
+  Clock,
+  Copy,
+  ExternalLink,
+  Globe,
+  FileCheck,
+  Check
 } from 'lucide-react';
 
 interface AdminDashboardProps {
@@ -51,12 +58,22 @@ interface AdminDashboardProps {
 export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onReturnToFeed }) => {
   const { currentUser, isSuperAdmin, isSubAdmin, isAdmin, toggleSubAdmin, toggleVerifyUser } = useAuth();
 
-  const [activeTab, setActiveTab] = useState<'overview' | 'members' | 'calls' | 'payments'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'verifications' | 'members' | 'calls' | 'payments'>('overview');
 
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [posts, setPosts] = useState<Post[]>([]);
   const [tickets, setTickets] = useState<SupportTicket[]>([]);
   const [appSettings, setAppSettings] = useState<AppSettings | null>(null);
+
+  // Manual Pro Verifications & Domains state
+  const [verifications, setVerifications] = useState<PendingVerification[]>([]);
+  const [systemDomains, setSystemDomains] = useState<SystemDomain[]>([]);
+  const [verifFilter, setVerifFilter] = useState<'pending' | 'approved' | 'rejected' | 'all'>('pending');
+  const [approvingId, setApprovingId] = useState<string | null>(null);
+  const [rejectingId, setRejectingId] = useState<string | null>(null);
+  const [actionFeedback, setActionFeedback] = useState<string | null>(null);
+  const [copiedTxnId, setCopiedTxnId] = useState<string | null>(null);
+  const [copiedDomain, setCopiedDomain] = useState<string | null>(null);
 
   // Payment Gateway Config State
   const [paymentConfig, setPaymentConfig] = useState<PaymentGatewayConfig>({
@@ -148,12 +165,28 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onReturnToFeed }
       }
     });
 
+    const unsubVerifications = onSnapshot(collection(db, 'pending_verifications'), (snap) => {
+      const list: PendingVerification[] = [];
+      snap.forEach((d) => list.push({ id: d.id, ...d.data() } as PendingVerification));
+      list.sort((a, b) => new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime());
+      setVerifications(list);
+    });
+
+    const unsubDomains = onSnapshot(collection(db, 'system_domains'), (snap) => {
+      const list: SystemDomain[] = [];
+      snap.forEach((d) => list.push({ id: d.id, ...d.data() } as SystemDomain));
+      list.sort((a, b) => new Date(b.lastSeenAt).getTime() - new Date(a.lastSeenAt).getTime());
+      setSystemDomains(list);
+    });
+
     return () => {
       unsubUsers();
       unsubPosts();
       unsubTickets();
       unsubSettings();
       unsubPaymentConfig();
+      unsubVerifications();
+      unsubDomains();
     };
   }, [isAdmin]);
 
@@ -313,7 +346,62 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onReturnToFeed }
     }
   };
 
+  // Approve Manual Pro Verification
+  const handleApproveVerification = async (verif: PendingVerification) => {
+    setApprovingId(verif.id);
+    setActionFeedback(null);
+    try {
+      await approveVerification(verif, currentUser?.email || ADMIN_EMAIL);
+      setActionFeedback(`🎉 Approved! ${verif.userName} (${verif.userEmail}) is now WaveLink Pro with Verified Blue Star!`);
+      setTimeout(() => setActionFeedback(null), 5000);
+    } catch (err: any) {
+      console.error('Failed to approve verification:', err);
+      setActionFeedback(`Error approving: ${err.message || String(err)}`);
+    } finally {
+      setApprovingId(null);
+    }
+  };
+
+  // Reject Manual Pro Verification
+  const handleRejectVerification = async (verif: PendingVerification) => {
+    const reason = prompt(
+      `Enter reason for rejecting Txn ID ${verif.transactionId} (${verif.userName}):`,
+      'SMS Transaction ID could not be matched with statement'
+    );
+    if (!reason) return;
+
+    setRejectingId(verif.id);
+    setActionFeedback(null);
+    try {
+      await rejectVerification(verif.id, verif.userId, reason);
+      setActionFeedback(`Transaction ${verif.transactionId} rejected.`);
+      setTimeout(() => setActionFeedback(null), 4000);
+    } catch (err: any) {
+      console.error('Failed to reject verification:', err);
+      setActionFeedback(`Error rejecting: ${err.message || String(err)}`);
+    } finally {
+      setRejectingId(null);
+    }
+  };
+
+  const copyTxn = (text: string, id: string) => {
+    if (navigator?.clipboard?.writeText) {
+      navigator.clipboard.writeText(text);
+      setCopiedTxnId(id);
+      setTimeout(() => setCopiedTxnId(null), 2000);
+    }
+  };
+
+  const copyDomain = (text: string, id: string) => {
+    if (navigator?.clipboard?.writeText) {
+      navigator.clipboard.writeText(text);
+      setCopiedDomain(id);
+      setTimeout(() => setCopiedDomain(null), 2000);
+    }
+  };
+
   const totalUsers = users.length;
+  const pendingVerificationsCount = verifications.filter((v) => v.status === 'pending').length;
   const activeUsers = users.filter((u) => u.status === 'active' && !u.isBanned).length;
   const warnedUsers = users.filter((u) => u.status === 'warned' && !u.isBanned).length;
   const bannedUsers = users.filter((u) => u.isBanned).length;
@@ -381,6 +469,25 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onReturnToFeed }
         </button>
 
         <button
+          onClick={() => setActiveTab('verifications')}
+          className={`px-4 py-2.5 rounded-xl transition flex items-center gap-2 whitespace-nowrap ${
+            activeTab === 'verifications'
+              ? 'bg-purple-600 text-white shadow-xs'
+              : 'text-gray-600 dark:text-gray-300 hover:text-gray-900'
+          }`}
+        >
+          <FileCheck size={15} />
+          <span>Manual Pro Verifications</span>
+          {pendingVerificationsCount > 0 ? (
+            <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-amber-500 text-slate-950 animate-pulse">
+              {pendingVerificationsCount} PENDING
+            </span>
+          ) : (
+            <span className="text-[10px] font-mono text-gray-400">({verifications.length})</span>
+          )}
+        </button>
+
+        <button
           onClick={() => setActiveTab('members')}
           className={`px-4 py-2.5 rounded-xl transition flex items-center gap-2 whitespace-nowrap ${
             activeTab === 'members'
@@ -417,10 +524,64 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onReturnToFeed }
         </button>
       </div>
 
+      {actionFeedback && (
+        <div className="p-4 rounded-2xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 text-xs sm:text-sm flex items-center justify-between gap-3 animate-in fade-in">
+          <span>{actionFeedback}</span>
+          <button
+            type="button"
+            onClick={() => setActionFeedback(null)}
+            className="text-emerald-300 hover:text-white text-xs px-2 py-1 rounded-lg hover:bg-emerald-500/20"
+          >
+            ✕
+          </button>
+        </div>
+      )}
+
       {/* Tab 1: Overview */}
       {activeTab === 'overview' && (
         <div className="space-y-6">
+          {pendingVerificationsCount > 0 && (
+            <div className="p-4 rounded-3xl bg-gradient-to-r from-amber-500/15 via-purple-500/15 to-indigo-500/15 border border-amber-500/30 text-amber-200 text-xs sm:text-sm flex items-center justify-between gap-4 flex-wrap">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 rounded-2xl bg-amber-500 text-slate-950 font-bold">
+                  <FileCheck size={20} />
+                </div>
+                <div>
+                  <h4 className="font-extrabold text-white text-sm">
+                    {pendingVerificationsCount} Manual Mobile Money Txn{pendingVerificationsCount > 1 ? 's' : ''} Awaiting Approval
+                  </h4>
+                  <p className="text-xs text-amber-200/80 mt-0.5">
+                    Users have sent Airtel Money / Tigo Pesa funds and submitted their SMS Transaction IDs.
+                  </p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setActiveTab('verifications')}
+                className="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-extrabold text-xs transition shadow-md"
+              >
+                Review &amp; Approve Now
+              </button>
+            </div>
+          )}
+
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 sm:gap-4">
+            <div
+              onClick={() => setActiveTab('verifications')}
+              className="bg-white dark:bg-[#131927] border border-gray-200 dark:border-gray-800 rounded-2xl p-4 shadow-xs cursor-pointer hover:border-amber-400 dark:hover:border-amber-500/60 transition"
+            >
+              <div className="flex items-center justify-between text-gray-500 mb-2">
+                <span className="text-[11px] font-bold uppercase tracking-wider">Txn Approvals</span>
+                <FileCheck size={16} className="text-amber-500" />
+              </div>
+              <div className="text-2xl font-black font-mono tabular-numbers text-amber-500">
+                {pendingVerificationsCount}
+              </div>
+              <span className="text-[10px] text-gray-400">
+                {pendingVerificationsCount > 0 ? 'Action required' : 'All clear'}
+              </span>
+            </div>
             <div className="bg-white dark:bg-[#131927] border border-gray-200 dark:border-gray-800 rounded-2xl p-4 shadow-xs">
               <div className="flex items-center justify-between text-gray-500 mb-2">
                 <span className="text-[11px] font-bold uppercase tracking-wider">Total Users</span>
@@ -474,6 +635,362 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onReturnToFeed }
               <div className="text-2xl font-black font-mono tabular-numbers text-gray-900 dark:text-white">{posts.length}</div>
               <span className="text-[10px] text-gray-400">Public posts</span>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Tab: Manual Pro Verifications & Domain Whitelist Hub */}
+      {activeTab === 'verifications' && (
+        <div className="space-y-6 animate-in fade-in">
+          <div className="bg-white dark:bg-[#131927] border border-gray-200 dark:border-gray-800 rounded-3xl p-6 shadow-xs space-y-5">
+            <div className="flex items-center justify-between flex-wrap gap-4 border-b border-gray-100 dark:border-gray-800 pb-4">
+              <div>
+                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/15 text-amber-400 text-xs font-bold uppercase tracking-wider mb-2">
+                  <FileCheck size={14} />
+                  <span>Manual Mobile Money Verifications</span>
+                </div>
+                <h3 className="text-xl font-extrabold text-gray-900 dark:text-white">
+                  SMS Transaction ID Verification Queue
+                </h3>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                  Approve user-submitted Airtel Money and Tigo Pesa transactions. Approving instantly awards the Verified Blue Star Pro badge and unlocks 500MB media and 1080p calls.
+                </p>
+              </div>
+
+              {/* Status Filter Tabs */}
+              <div className="flex items-center gap-1.5 p-1 bg-gray-100 dark:bg-gray-800 rounded-2xl text-xs font-bold">
+                <button
+                  type="button"
+                  onClick={() => setVerifFilter('pending')}
+                  className={`px-3 py-1.5 rounded-xl transition ${
+                    verifFilter === 'pending'
+                      ? 'bg-amber-500 text-slate-950 shadow-sm'
+                      : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
+                  }`}
+                >
+                  Pending ({pendingVerificationsCount})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setVerifFilter('approved')}
+                  className={`px-3 py-1.5 rounded-xl transition ${
+                    verifFilter === 'approved'
+                      ? 'bg-emerald-600 text-white shadow-sm'
+                      : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
+                  }`}
+                >
+                  Approved ({verifications.filter((v) => v.status === 'approved').length})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setVerifFilter('rejected')}
+                  className={`px-3 py-1.5 rounded-xl transition ${
+                    verifFilter === 'rejected'
+                      ? 'bg-rose-600 text-white shadow-sm'
+                      : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
+                  }`}
+                >
+                  Rejected ({verifications.filter((v) => v.status === 'rejected').length})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setVerifFilter('all')}
+                  className={`px-3 py-1.5 rounded-xl transition ${
+                    verifFilter === 'all'
+                      ? 'bg-purple-600 text-white shadow-sm'
+                      : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
+                  }`}
+                >
+                  All ({verifications.length})
+                </button>
+              </div>
+            </div>
+
+            {/* List of Verifications */}
+            {(() => {
+              const filtered = verifications.filter((v) => {
+                if (verifFilter === 'all') return true;
+                return v.status === verifFilter;
+              });
+
+              if (filtered.length === 0) {
+                return (
+                  <div className="text-center py-12 text-gray-400 space-y-2">
+                    <FileCheck size={36} className="mx-auto text-gray-500 opacity-40" />
+                    <p className="text-sm font-semibold">No transactions found in this category.</p>
+                    <p className="text-xs text-gray-500">
+                      When users submit SMS Transaction IDs from the WaveLink Pro modal, they will appear here in real-time.
+                    </p>
+                  </div>
+                );
+              }
+
+              return (
+                <div className="grid grid-cols-1 gap-4">
+                  {filtered.map((item) => {
+                    const isPending = item.status === 'pending';
+                    const isApproved = item.status === 'approved';
+                    const isRejected = item.status === 'rejected';
+
+                    return (
+                      <div
+                        key={item.id}
+                        className={`p-5 rounded-2xl border transition-all ${
+                          isPending
+                            ? 'bg-amber-500/5 dark:bg-amber-950/20 border-amber-500/30'
+                            : isApproved
+                            ? 'bg-emerald-500/5 dark:bg-emerald-950/20 border-emerald-500/30'
+                            : 'bg-rose-500/5 dark:bg-rose-950/20 border-rose-500/30'
+                        }`}
+                      >
+                        <div className="flex items-start justify-between flex-wrap gap-4">
+                          {/* User Details */}
+                          <div className="flex items-center gap-3">
+                            <img
+                              src={item.userPhotoURL || `https://api.dicebear.com/7.x/shapes/svg?seed=${item.userId}`}
+                              alt={item.userName}
+                              className="w-12 h-12 rounded-full object-cover ring-2 ring-purple-500/30 shrink-0"
+                            />
+                            <div>
+                              <div className="font-extrabold text-sm text-gray-900 dark:text-white flex items-center gap-2">
+                                <span>{item.userName}</span>
+                                <span className="text-[10px] font-mono text-purple-600 dark:text-purple-400">
+                                  ID: {item.userId.substring(0, 8)}...
+                                </span>
+                              </div>
+                              <div className="text-xs text-gray-500 dark:text-gray-400 font-mono">
+                                {item.userEmail}
+                              </div>
+                              {item.phoneNumber && (
+                                <div className="text-[11px] text-gray-500 dark:text-gray-400 flex items-center gap-1 mt-0.5">
+                                  <Smartphone size={12} className="text-purple-500" />
+                                  <span>Sender Phone: {item.phoneNumber}</span>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Carrier & Status Badges */}
+                          <div className="flex items-center gap-2">
+                            <span className="px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-purple-100 text-purple-800 dark:bg-purple-950 dark:text-purple-300">
+                              {item.carrier}
+                            </span>
+                            <span className="px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider bg-indigo-100 text-indigo-800 dark:bg-indigo-950 dark:text-indigo-300">
+                              {item.tierName}
+                            </span>
+                            {isPending && (
+                              <span className="px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider bg-amber-500/20 text-amber-500 border border-amber-500/40 animate-pulse">
+                                Pending Verification
+                              </span>
+                            )}
+                            {isApproved && (
+                              <span className="px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 flex items-center gap-1">
+                                <CheckCircle2 size={13} />
+                                Approved
+                              </span>
+                            )}
+                            {isRejected && (
+                              <span className="px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider bg-rose-500/20 text-rose-400 border border-rose-500/40">
+                                Rejected
+                              </span>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Transaction ID Highlight Box */}
+                        <div className="mt-4 p-3.5 rounded-xl bg-slate-900 border border-slate-800 flex items-center justify-between flex-wrap gap-3">
+                          <div>
+                            <div className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">
+                              SMS Transaction ID / Reference Code:
+                            </div>
+                            <div className="text-base sm:text-lg font-mono font-black text-amber-400 tracking-wider select-all mt-0.5">
+                              {item.transactionId}
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-3">
+                            <div className="text-right">
+                              <div className="text-[10px] uppercase text-slate-400 font-semibold">Payment Amount</div>
+                              <div className="text-sm font-black text-white font-mono">
+                                TZS {item.amountTZS.toLocaleString()}
+                              </div>
+                            </div>
+
+                            <button
+                              type="button"
+                              onClick={() => copyTxn(item.transactionId, item.id)}
+                              className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold flex items-center gap-1.5 transition"
+                            >
+                              {copiedTxnId === item.id ? <Check size={13} className="text-emerald-400" /> : <Copy size={13} />}
+                              <span>{copiedTxnId === item.id ? 'Copied' : 'Copy Txn ID'}</span>
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Footer Details & Action Buttons */}
+                        <div className="mt-4 flex items-center justify-between flex-wrap gap-3 pt-3 border-t border-gray-200/60 dark:border-gray-800/60 text-xs">
+                          <div className="text-gray-500 dark:text-gray-400 text-[11px] flex items-center gap-2">
+                            <Clock size={12} />
+                            <span>Submitted: {new Date(item.submittedAt).toLocaleString()}</span>
+                            {item.approvedAt && (
+                              <span>• Approved: {new Date(item.approvedAt).toLocaleString()}</span>
+                            )}
+                            {item.notes && (
+                              <span className="text-rose-400">• Note: {item.notes}</span>
+                            )}
+                          </div>
+
+                          {/* Approval Actions */}
+                          {isPending && (
+                            <div className="flex items-center gap-2">
+                              <button
+                                type="button"
+                                onClick={() => handleRejectVerification(item)}
+                                disabled={rejectingId === item.id || approvingId === item.id}
+                                className="px-3 py-1.5 rounded-xl border border-rose-300 dark:border-rose-900 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 font-bold transition disabled:opacity-50"
+                              >
+                                {rejectingId === item.id ? 'Rejecting...' : 'Reject'}
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={() => handleApproveVerification(item)}
+                                disabled={approvingId === item.id || rejectingId === item.id}
+                                className="px-4 py-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:opacity-95 text-white font-extrabold flex items-center gap-2 shadow-md shadow-emerald-600/30 transition disabled:opacity-50"
+                              >
+                                {approvingId === item.id ? (
+                                  <>
+                                    <Loader2 size={14} className="animate-spin" />
+                                    <span>Activating Pro...</span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <CheckCircle size={14} />
+                                    <span>Approve &amp; Activate Pro</span>
+                                  </>
+                                )}
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              );
+            })()}
+          </div>
+
+          {/* Google OAuth & System Domains Whitelist Console */}
+          <div className="bg-white dark:bg-[#131927] border border-teal-500/30 rounded-3xl p-6 shadow-xs space-y-4">
+            <div className="flex items-center justify-between flex-wrap gap-3 border-b border-gray-100 dark:border-gray-800 pb-3">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 rounded-xl bg-teal-500/20 text-teal-400">
+                  <Globe size={18} />
+                </div>
+                <div>
+                  <h4 className="font-extrabold text-sm sm:text-base text-gray-900 dark:text-white">
+                    Google OAuth Authorized Domains Whitelist
+                  </h4>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                    Host domains registered in Firebase Authentication for Google Sign-In popups
+                  </p>
+                </div>
+              </div>
+
+              <a
+                href="https://console.firebase.google.com/project/red-bonito-16tvw/authentication/settings"
+                target="_blank"
+                rel="noreferrer"
+                className="px-4 py-2 rounded-xl bg-teal-600 hover:bg-teal-500 text-white font-extrabold text-xs flex items-center gap-1.5 transition shadow-sm"
+              >
+                <span>Open Firebase Authorized Domains</span>
+                <ExternalLink size={13} />
+              </a>
+            </div>
+
+            <p className="text-xs text-gray-600 dark:text-gray-300 leading-relaxed">
+              When Google Sign-In is executed on a new preview or custom domain, Firebase requires that host in the Authorized Domains list. Below are the domains automatically detected and logged by WaveLink:
+            </p>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {/* Current Host Domain */}
+              <div className="p-3.5 rounded-2xl bg-teal-500/10 border border-teal-500/30 flex items-center justify-between gap-3">
+                <div className="truncate">
+                  <span className="text-[10px] font-black uppercase tracking-wider text-teal-400 block">
+                    Current Active Host
+                  </span>
+                  <span className="text-xs font-mono font-bold text-gray-900 dark:text-white truncate">
+                    {typeof window !== 'undefined' ? window.location.hostname : 'loading...'}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() =>
+                    copyDomain(
+                      typeof window !== 'undefined' ? window.location.hostname : '',
+                      'current'
+                    )
+                  }
+                  className="px-2.5 py-1 rounded-lg bg-teal-600 text-white text-[11px] font-bold flex items-center gap-1 shrink-0"
+                >
+                  {copiedDomain === 'current' ? <Check size={12} /> : <Copy size={12} />}
+                  <span>{copiedDomain === 'current' ? 'Copied' : 'Copy'}</span>
+                </button>
+              </div>
+
+              {/* Development Host Domain */}
+              <div className="p-3.5 rounded-2xl bg-purple-500/10 border border-purple-500/30 flex items-center justify-between gap-3">
+                <div className="truncate">
+                  <span className="text-[10px] font-black uppercase tracking-wider text-purple-400 block">
+                    Dev Cloud Run Host
+                  </span>
+                  <span className="text-xs font-mono font-bold text-gray-900 dark:text-white truncate">
+                    ais-dev-3q3vlonjbk6epnc53geyhc-713336902783.europe-west2.run.app
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() =>
+                    copyDomain(
+                      'ais-dev-3q3vlonjbk6epnc53geyhc-713336902783.europe-west2.run.app',
+                      'dev'
+                    )
+                  }
+                  className="px-2.5 py-1 rounded-lg bg-purple-600 text-white text-[11px] font-bold flex items-center gap-1 shrink-0"
+                >
+                  {copiedDomain === 'dev' ? <Check size={12} /> : <Copy size={12} />}
+                  <span>{copiedDomain === 'dev' ? 'Copied' : 'Copy'}</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Other Logged Domains */}
+            {systemDomains.length > 0 && (
+              <div className="pt-2">
+                <span className="text-[11px] font-bold text-gray-700 dark:text-gray-300 block mb-2">
+                  All Registered System Domains ({systemDomains.length}):
+                </span>
+                <div className="space-y-1.5 max-h-36 overflow-y-auto">
+                  {systemDomains.map((d) => (
+                    <div
+                      key={d.id}
+                      className="px-3 py-1.5 rounded-xl bg-gray-50 dark:bg-gray-800 text-xs font-mono flex items-center justify-between gap-3"
+                    >
+                      <span className="truncate text-gray-800 dark:text-gray-200">{d.domain}</span>
+                      <button
+                        type="button"
+                        onClick={() => copyDomain(d.domain, d.id)}
+                        className="text-[10px] text-teal-500 hover:text-teal-400 flex items-center gap-1"
+                      >
+                        {copiedDomain === d.id ? <Check size={10} /> : <Copy size={10} />}
+                        <span>{copiedDomain === d.id ? 'Copied' : 'Copy'}</span>
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}

@@ -7,6 +7,7 @@ import React, { useState, useEffect } from 'react';
 import { ThemeProvider } from './context/ThemeContext';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { testConnection, isOwnerEmail, ADMIN_EMAIL } from './firebase';
+import { recordSystemDomain } from './services/verificationService';
 import { ActiveTab, CallRecipient } from './types';
 import { AuthPage } from './components/AuthPage';
 import { Sidebar } from './components/Sidebar';
@@ -57,9 +58,10 @@ function MainApp() {
     setActiveTab('chat');
   };
 
-  // Test Firestore connection on boot per Firebase skill guidelines
+  // Test Firestore connection on boot and record current domain in Firebase
   useEffect(() => {
     testConnection();
+    recordSystemDomain();
   }, []);
 
   if (isLoading) {
