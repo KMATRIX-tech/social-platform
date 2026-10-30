@@ -23,7 +23,8 @@ import {
   BarChart3,
   Crown,
   Sparkles,
-  Coins
+  Coins,
+  CalendarDays
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -48,7 +49,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     { id: 'feed', label: 'Home', icon: <Rss size={18} /> },
     { id: 'videos', label: 'Explore', icon: <Film size={18} /> },
     { id: 'studio', label: 'Create', icon: <Wand2 size={18} />, badge: 'Studio' },
-    { id: 'announcements', label: 'Notifications', icon: <Megaphone size={18} /> },
+    { id: 'announcements', label: 'Notice Board & Events', icon: <CalendarDays size={18} />, badge: 'Events' },
     { id: 'chat', label: 'Messages', icon: <MessageSquare size={18} /> },
     { id: 'monetization', label: 'Monetization Hub', icon: <Coins size={18} />, badge: 'TZS' },
     { id: 'directory', label: 'Members', icon: <Users size={18} /> },
@@ -80,20 +81,20 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const sidebarContent = (
     <div className="flex flex-col h-full bg-white dark:bg-[#0f1422] border-r border-gray-200/80 dark:border-gray-800 transition-colors select-none">
       {/* Brand Header */}
-      <div className="p-5 border-b border-gray-100 dark:border-gray-800/80 flex items-center justify-between">
+      <div className="p-5 border-b border-slate-100 dark:border-gray-800/80 flex items-center justify-between">
         <div
           onClick={() => handleSelectTab('feed')}
           className="flex items-center gap-3 cursor-pointer group"
         >
-          <div className="p-2.5 rounded-2xl bg-gradient-to-tr from-purple-600 via-indigo-600 to-pink-500 text-white shadow-md shadow-purple-500/25 group-hover:scale-105 transition-transform">
+          <div className="p-2.5 rounded-2xl bg-gradient-to-tr from-blue-500 to-emerald-500 text-white shadow-md shadow-blue-500/25 group-hover:scale-105 transition-transform">
             <Waves size={22} />
           </div>
           <div className="flex flex-col">
-            <span className="font-extrabold text-xl tracking-tight bg-gradient-to-r from-purple-600 via-indigo-600 to-pink-500 bg-clip-text text-transparent">
+            <span className="font-extrabold text-xl tracking-tight bg-gradient-to-r from-blue-600 via-sky-500 to-emerald-600 bg-clip-text text-transparent">
               WaveLink
             </span>
-            <span className="text-[10px] font-semibold text-gray-400 dark:text-gray-500 -mt-0.5">
-              Connect & Share
+            <span className="text-[10px] font-semibold text-slate-400 dark:text-gray-500 -mt-0.5">
+              Connect &amp; Share
             </span>
           </div>
         </div>
@@ -101,7 +102,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         {isOpenMobile && (
           <button
             onClick={onCloseMobile}
-            className="p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 rounded-lg md:hidden"
+            className="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-gray-200 rounded-lg md:hidden"
           >
             <X size={18} />
           </button>
@@ -110,7 +111,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
       {/* Navigation List */}
       <div className="flex-1 overflow-y-auto px-3.5 py-4 space-y-1">
-        <div className="text-[10px] font-bold uppercase tracking-wider text-gray-400 dark:text-gray-500 px-3 py-1 mb-1">
+        <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-gray-500 px-3 py-1 mb-1">
           Menu
         </div>
 
@@ -124,12 +125,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
               onClick={() => handleSelectTab(item.id)}
               className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-2xl text-xs sm:text-sm font-semibold transition-all duration-150 ${
                 isActive
-                  ? 'bg-purple-600 text-white shadow-md shadow-purple-600/25 dark:bg-purple-600'
-                  : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100/80 dark:hover:bg-gray-800/60'
+                  ? 'bg-blue-600 text-white shadow-md shadow-blue-500/25'
+                  : 'text-slate-700 dark:text-gray-300 hover:bg-slate-100/90 dark:hover:bg-gray-800/60'
               }`}
             >
               <div className="flex items-center gap-3">
-                <span className={isActive ? 'text-white' : 'text-gray-500 dark:text-gray-400'}>
+                <span className={isActive ? 'text-white' : 'text-slate-400 dark:text-gray-400'}>
                   {item.icon}
                 </span>
                 <span>{item.label}</span>
@@ -142,7 +143,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                       ? 'bg-white/20 text-white'
                       : isItemAdmin && isAdmin
                       ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300'
-                      : 'bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400'
+                      : 'bg-slate-100 text-slate-600 dark:bg-gray-800 dark:text-gray-400'
                   }`}
                 >
                   {item.badge}
@@ -158,7 +159,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         {!isProUser ? (
           <button
             onClick={() => handleSelectTab('monetization')}
-            className="w-full p-3 rounded-2xl bg-gradient-to-r from-amber-500 via-rose-500 to-purple-600 hover:opacity-95 text-white shadow-md shadow-amber-500/20 active:scale-95 transition flex items-center justify-between gap-2 group"
+            className="w-full p-3 rounded-2xl bg-gradient-to-r from-blue-600 to-emerald-600 hover:from-blue-500 hover:to-emerald-500 text-white shadow-md shadow-blue-500/20 active:scale-95 transition flex items-center justify-between gap-2 group"
           >
             <div className="flex items-center gap-2 text-left min-w-0">
               <div className="p-1.5 rounded-xl bg-white/20">
@@ -166,18 +167,18 @@ export const Sidebar: React.FC<SidebarProps> = ({
               </div>
               <div className="min-w-0">
                 <span className="text-xs font-black block tracking-tight">Upgrade to Pro</span>
-                <span className="text-[10px] text-amber-100/90 block truncate">18,000 TZS/mo</span>
+                <span className="text-[10px] text-blue-100 block truncate">18,000 TZS Lipa Till</span>
               </div>
             </div>
             <Sparkles size={14} className="text-amber-200 shrink-0 group-hover:rotate-12 transition-transform" />
           </button>
         ) : (
-          <div className="p-2.5 rounded-2xl bg-purple-950/40 border border-purple-500/30 flex items-center justify-between text-xs">
-            <span className="text-[11px] font-bold text-amber-400 flex items-center gap-1.5">
-              <Crown size={13} />
+          <div className="p-2.5 rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 flex items-center justify-between text-xs">
+            <span className="text-[11px] font-bold text-emerald-800 dark:text-emerald-300 flex items-center gap-1.5">
+              <Crown size={13} className="text-amber-500" />
               <span>WaveLink Pro Active</span>
             </span>
-            <span className="text-[10px] text-emerald-400 font-bold bg-emerald-950/60 px-2 py-0.5 rounded-full">VIP</span>
+            <span className="text-[10px] text-emerald-700 dark:text-emerald-300 font-bold bg-emerald-100 dark:bg-emerald-900/60 px-2 py-0.5 rounded-full">VIP</span>
           </div>
         )}
 

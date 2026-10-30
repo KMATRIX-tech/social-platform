@@ -25,6 +25,8 @@ import {
   Crown
 } from 'lucide-react';
 
+import { MobileMoneyPaymentModal } from './MobileMoneyPaymentModal';
+
 interface PostBoostModalProps {
   post: Post;
   isOpen: boolean;
@@ -41,6 +43,10 @@ export const PostBoostModal: React.FC<PostBoostModalProps> = ({
   const { currentUser, userProfile, isAdmin, isProEffective, isExemptFromPayments } = useAuth();
   const [phoneNumber, setPhoneNumber] = useState('');
   const [provider, setProvider] = useState<MobileMoneyProvider>('airtel');
+  const [isUpgradeModalOpen, setIsUpgradeModalOpen] = useState(false);
+
+  // Restrict post boosting to Pro members and Admins
+  const canBoost = Boolean(userProfile?.isPro === true || isAdmin || isProEffective);
 
   // Steps: 'intro' | 'ussd_push' | 'success'
   const [step, setStep] = useState<'intro' | 'ussd_push' | 'success'>('intro');
@@ -213,15 +219,34 @@ export const PostBoostModal: React.FC<PostBoostModalProps> = ({
                 </div>
               </div>
 
-              {/* Exemption condition: Free for Admin, Verified by Admin, or Unlocked Pro */}
-              {isExemptFromPayments ? (
+              {/* Pro Perks Enforcement: Restrict post-boosting to Pro users and Admins */}
+              {!canBoost ? (
+                <div className="p-5 rounded-2xl bg-gradient-to-br from-amber-50 to-purple-50 dark:from-amber-950/30 dark:to-purple-950/30 border border-amber-300 dark:border-amber-700/50 space-y-3">
+                  <div className="flex items-center gap-2 text-amber-700 dark:text-amber-300 font-black text-xs uppercase tracking-wider">
+                    <Crown size={18} className="text-amber-500" />
+                    <span>WaveLink Pro Exclusive Perk</span>
+                  </div>
+                  <p className="text-xs text-slate-700 dark:text-slate-300 leading-relaxed">
+                    Post Boosting is restricted to <strong>WaveLink Pro</strong> members and <strong>Administrators</strong>. Upgrade to Pro to boost your posts, unlock 500MB uploads, verified Blue Star, and enjoy an ad-free experience!
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => setIsUpgradeModalOpen(true)}
+                    className="w-full py-3 rounded-xl bg-gradient-to-r from-amber-500 via-rose-500 to-purple-600 hover:opacity-95 text-white font-black text-xs sm:text-sm flex items-center justify-center gap-2 shadow-lg shadow-amber-500/30 transition active:scale-95"
+                  >
+                    <Crown size={16} />
+                    <span>Upgrade to Pro to Boost Posts</span>
+                  </button>
+                </div>
+              ) : (
+                /* Pro / Admin users can activate the 48h boost directly */
                 <div className="p-4 rounded-2xl bg-gradient-to-r from-amber-500/15 via-purple-500/15 to-indigo-500/15 border-2 border-amber-400/60 dark:border-amber-500/40 space-y-3">
                   <div className="flex items-center gap-2 text-amber-700 dark:text-amber-300 font-black text-xs uppercase tracking-wider">
                     <Crown size={16} />
-                    <span>VIP Privilege Active • Free Post Boost</span>
+                    <span>VIP Privilege Active • Complimentary Post Boost</span>
                   </div>
                   <p className="text-xs text-gray-700 dark:text-gray-300 leading-relaxed">
-                    Premium micro-payment charges do not apply to you as an <strong>Administrator / Verified Pro Member</strong>. Boost your post immediately without paying!
+                    As a verified <strong>Pro Member / Administrator</strong>, you can activate this 48-hour boost immediately!
                   </p>
                   <button
                     type="button"
@@ -237,56 +262,11 @@ export const PostBoostModal: React.FC<PostBoostModalProps> = ({
                     ) : (
                       <>
                         <Rocket size={16} />
-                        <span>Activate 48h Boost Free (0 TZS)</span>
+                        <span>Activate 48h Boost</span>
                       </>
                     )}
                   </button>
                 </div>
-              ) : (
-                <>
-                  {/* Phone input */}
-                  <div>
-                    <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">
-                      Airtel Money / Mobile Phone Number:
-                    </label>
-                    <div className="relative">
-                      <Phone className="absolute left-3.5 top-3 text-amber-500" size={15} />
-                      <input
-                        type="tel"
-                        required
-                        value={phoneNumber}
-                        onChange={handlePhoneChange}
-                        placeholder="e.g. 0784 123 456"
-                        className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-xs sm:text-sm text-gray-900 dark:text-white font-mono focus:outline-none focus:ring-2 focus:ring-amber-500"
-                      />
-                    </div>
-                  </div>
-
-                  {error && (
-                    <div className="p-2.5 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-300 text-xs flex items-center gap-2">
-                      <AlertCircle size={14} className="shrink-0" />
-                      <span>{error}</span>
-                    </div>
-                  )}
-
-                  <button
-                    type="submit"
-                    disabled={isProcessing}
-                    className="w-full py-3 rounded-xl bg-gradient-to-r from-amber-500 via-rose-500 to-purple-600 hover:opacity-95 text-white font-black text-xs sm:text-sm flex items-center justify-center gap-2 shadow-lg shadow-amber-500/25 transition disabled:opacity-50"
-                  >
-                    {isProcessing ? (
-                      <>
-                        <Loader2 size={16} className="animate-spin" />
-                        <span>Initiating USSD push...</span>
-                      </>
-                    ) : (
-                      <>
-                        <Rocket size={15} />
-                        <span>Boost for 2,000 TZS</span>
-                      </>
-                    )}
-                  </button>
-                </>
               )}
             </form>
           )}
@@ -369,6 +349,16 @@ export const PostBoostModal: React.FC<PostBoostModalProps> = ({
           )}
         </div>
       </div>
+
+      {/* Pro Upgrade Modal */}
+      {isUpgradeModalOpen && (
+        <MobileMoneyPaymentModal
+          onClose={() => setIsUpgradeModalOpen(false)}
+          onSuccess={() => {
+            setIsUpgradeModalOpen(false);
+          }}
+        />
+      )}
     </div>
   );
 };

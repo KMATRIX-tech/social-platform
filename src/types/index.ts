@@ -19,6 +19,10 @@ export interface UserProfile {
   isSubAdmin?: boolean;
   hasBlueStar?: boolean;
   isVerifiedByAdmin?: boolean;
+  isOfficialPartner?: boolean;
+  partnerType?: string;
+  partnerBadgeTitle?: string;
+  isCommunityLeader?: boolean;
   // Pro Subscription Fields
   isPro?: boolean;
   proPlan?: 'weekly' | 'monthly' | 'annual';
@@ -132,10 +136,24 @@ export interface Announcement {
   authorId: string;
   authorEmail: string;
   authorName: string;
+  authorUsername?: string;
+  authorPhotoURL?: string;
   title: string;
   content: string;
   priority: 'normal' | 'urgent';
   createdAt: string;
+  // Rich Community Notice & Event Fields
+  type?: 'announcement' | 'event' | 'schedule';
+  eventDate?: string;
+  eventTime?: string;
+  eventLocation?: string;
+  imageUrl?: string;
+  rsvpUserIds?: string[];
+  rsvpCount?: number;
+  isPinned?: boolean;
+  isOfficialPartner?: boolean;
+  partnerType?: 'church' | 'community_org' | 'civic_council' | 'partner' | string;
+  partnerBadgeTitle?: string;
 }
 
 export type TicketStatus = 'open' | 'in_progress' | 'resolved';
@@ -365,6 +383,24 @@ export interface SystemDomain {
   status: 'active' | 'needs_auth_whitelist';
   lastSeenAt: string;
   firstSeenAt: string;
+}
+
+export interface PaymentRequest {
+  id: string;
+  userId: string;
+  userPhone: string;
+  plan: 'monthly' | 'harvest' | string;
+  planName?: string;
+  amountTZS?: number;
+  transactionId: string;
+  status: 'pending' | 'approved' | 'rejected';
+  timestamp?: any;
+  createdAt?: string;
+  userEmail?: string;
+  userName?: string;
+  userPhotoURL?: string;
+  approvedAt?: string | null;
+  approvedBy?: string | null;
 }
 
 

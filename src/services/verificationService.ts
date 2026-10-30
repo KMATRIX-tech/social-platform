@@ -7,7 +7,7 @@ import {
   serverTimestamp
 } from 'firebase/firestore';
 import { db, cleanFirestoreData, handleFirestoreError, OperationType, ADMIN_EMAIL } from '../firebase';
-import { PendingVerification, SystemDomain } from '../types';
+import { PendingVerification, PaymentRequest, SystemDomain } from '../types';
 import { sendNotification } from './notificationService';
 
 export interface SubmitVerificationParams {
@@ -155,6 +155,147 @@ export async function rejectVerification(
     }).catch(console.error);
   } catch (err) {
     handleFirestoreError(err, OperationType.UPDATE, `pending_verifications/${verificationId}`);
+    throw err;
+  }
+}
+
+export interface SubmitPaymentRequestParams {
+  userId: string;
+  userPhone: string;
+  plan: 'monthly' | 'harvest' | string;
+  transactionId: string;
+  amountTZS?: number;
+  userEmail?: string;
+  userName?: string;
+  userPhotoURL?: string;
+}
+
+/**
+ * Submit manual payment notification into 'payment_requests' collection
+ * Exactly storing { userId, userPhone, plan, transactionId, status: 'pending', timestamp: serverTimestamp() }
+ */
+export async function submitPaymentRequest(
+  params: SubmitPaymentRequestParams
+): Promise<PaymentRequest> {
+  const id = `pr_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+  const now = new Date().toISOString();
+
+  const record: PaymentRequest = {
+    id,
+    userId: params.userId,
+    userPhone: params.userPhone.trim(),
+    plan: params.plan,
+    planName: params.plan === 'harvest' ? 'Harvest 1-Year Pass' : 'Monthly Pro',
+    amountTZS: params.amountTZS || (params.plan === 'harvest' ? 50000 : 18000),
+    transactionId: params.transactionId.trim(),
+    status: 'pending',
+    timestamp: serverTimestamp(),
+    createdAt: now,
+    userEmail: params.userEmail || '',
+    userName: params.userName || 'Subscriber',
+    userPhotoURL: params.userPhotoURL || ''
+  };
+
+  try {
+    await setDoc(doc(db, 'payment_requests', id), cleanFirestoreData(record));
+
+    // Notify admin
+    sendNotification({
+      recipientId: 'keylan_admin',
+      actorId: params.userId,
+      actorName: params.userName || 'Subscriber',
+      actorAvatar: params.userPhotoURL,
+      type: 'system',
+      title: 'New Manual Payment Notification 💳',
+      body: `${params.userName || 'Subscriber'} paid for ${params.plan === 'harvest' ? 'Harvest Pass (50k)' : 'Monthly Pro (18k)'} (Txn: ${params.transactionId}) from ${params.userPhone}`,
+      entityId: id,
+      actionUrl: 'admin'
+    }).catch(() => {});
+
+    return record;
+  } catch (err) {
+    handleFirestoreError(err, OperationType.CREATE, `payment_requests/${id}`);
+    throw err;
+  }
+}
+
+/**
+ * Admin 1-Click Approve for PaymentRequest:
+ * 1. Sets status: 'approved' in payment_requests
+ * 2. Updates user.isPro = true, removes ads, sets Verified Pro badge
+ */
+export async function approvePaymentRequest(
+  request: PaymentRequest,
+  approvedByEmail: string
+): Promise<void> {
+  const now = new Date();
+  const daysToAdd = request.plan === 'harvest' ? 365 : 30;
+  const expiresAt = new Date(now.getTime() + daysToAdd * 24 * 60 * 60 * 1000).toISOString();
+
+  try {
+    // 1. Mark request as approved
+    await updateDoc(doc(db, 'payment_requests', request.id), {
+      status: 'approved',
+      approvedAt: now.toISOString(),
+      approvedBy: approvedByEmail
+    });
+
+    // 2. Set user.isPro = true and grant full perks
+    await updateDoc(doc(db, 'users', request.userId), {
+      isPro: true,
+      hasBlueStar: true,
+      proPlan: request.plan === 'harvest' ? 'annual' : 'monthly',
+      proExpiresAt: expiresAt,
+      proBadge: 'verified',
+      proBorderEffect: 'neon-pulse',
+      proAccentColor: 'emerald',
+      updatedAt: now.toISOString()
+    });
+
+    // 3. Dispatch celebration notification to the user
+    sendNotification({
+      recipientId: request.userId,
+      actorId: 'admin',
+      actorName: 'WaveLink Team',
+      type: 'system',
+      title: '🌟 WaveLink Pro Activated!',
+      body: `Your payment (Txn ${request.transactionId}) has been approved! Pro privileges are active and all advertisements are removed!`,
+      entityId: request.id,
+      actionUrl: 'feed'
+    }).catch(console.error);
+  } catch (err) {
+    handleFirestoreError(err, OperationType.UPDATE, `payment_requests/${request.id}`);
+    throw err;
+  }
+}
+
+/**
+ * Admin rejects a payment request
+ */
+export async function rejectPaymentRequest(
+  requestId: string,
+  userId: string,
+  reason: string = 'Payment could not be verified'
+): Promise<void> {
+  try {
+    await updateDoc(doc(db, 'payment_requests', requestId), {
+      status: 'rejected',
+      notes: reason,
+      updatedAt: new Date().toISOString()
+    });
+
+    sendNotification({
+      recipientId: userId,
+      actorId: 'admin',
+      actorName: 'WaveLink Team',
+      type: 'system',
+      title: 'Payment Request Update',
+      body: `Your payment notification could not be approved: ${reason}. Please verify your Transaction ID and paid amount.`,
+      entityId: requestId,
+      actionUrl: 'support'
+    }).catch(console.error);
+  } catch (err) {
+    handleFirestoreError(err, OperationType.UPDATE, `payment_requests/${requestId}`);
     throw err;
   }
 }

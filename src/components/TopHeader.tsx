@@ -27,7 +27,7 @@ const TAB_TITLES: Record<ActiveTab, { title: string; subtitle: string }> = {
   feed: { title: 'Wave Feed', subtitle: 'Community social waves and photos' },
   studio: { title: 'Media Studio', subtitle: 'Create, edit photos & videos with text, filters and music' },
   videos: { title: 'Wave Reels & Videos', subtitle: 'Watch, like, save, and share community clips' },
-  announcements: { title: 'Global Announcements', subtitle: 'Official platform broadcasts' },
+  announcements: { title: 'Community Notice Board & Events', subtitle: 'Local announcements, church schedules, and neighborhood events' },
   chat: { title: 'Chat & Groups', subtitle: 'Direct 1-on-1 messaging & user-created group chats' },
   directory: { title: 'Members Directory', subtitle: 'Real verified community members' },
   analytics: { title: 'Creator Analytics', subtitle: 'Wave impressions, engagement ratios & reach' },
@@ -56,14 +56,14 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
   const currentTabInfo = TAB_TITLES[activeTab] || { title: 'WaveLink', subtitle: 'Social Platform' };
 
   return (
-    <header className="sticky top-0 z-20 w-full backdrop-blur-md bg-white/90 dark:bg-[#0B0F19]/90 border-b border-gray-200/80 dark:border-gray-800/80 transition-colors">
+    <header className="sticky top-0 z-20 w-full backdrop-blur-md bg-white/95 dark:bg-[#0B0F19]/95 border-b border-slate-200/80 dark:border-gray-800/80 transition-colors shadow-2xs">
       <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-14 sm:h-16 gap-2 sm:gap-3">
           {/* Left: Mobile Brand & Menu, or Desktop View Title */}
           <div className="flex items-center gap-2.5 shrink-0">
             <button
               onClick={onOpenMobileMenu}
-              className="p-1.5 -ml-1 rounded-xl text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 md:hidden transition"
+              className="p-1.5 -ml-1 rounded-xl text-slate-600 dark:text-gray-300 hover:bg-slate-100 dark:hover:bg-gray-800 md:hidden transition"
               title="Open Navigation"
             >
               <Menu size={20} />
@@ -75,10 +75,10 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
                 onClick={() => onNavigateTab && onNavigateTab('feed')}
                 className="flex items-center gap-1.5 cursor-pointer"
               >
-                <div className="p-1.5 rounded-xl bg-gradient-to-tr from-purple-600 to-pink-500 text-white shadow-xs">
+                <div className="p-1.5 rounded-xl bg-gradient-to-tr from-blue-500 to-emerald-500 text-white shadow-xs">
                   <Waves size={16} />
                 </div>
-                <span className="font-black text-sm sm:text-base tracking-tight bg-gradient-to-r from-purple-600 via-indigo-600 to-pink-500 bg-clip-text text-transparent hidden sm:inline">
+                <span className="font-black text-sm sm:text-base tracking-tight bg-gradient-to-r from-blue-600 via-sky-500 to-emerald-600 bg-clip-text text-transparent hidden sm:inline">
                   WaveLink
                 </span>
               </div>
@@ -87,11 +87,11 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
             {/* Desktop View Title (>= 768px) */}
             <div className="hidden lg:flex flex-col">
               <div className="flex items-center gap-2">
-                <h1 className="font-extrabold text-base lg:text-lg text-gray-900 dark:text-white tracking-tight">
+                <h1 className="font-extrabold text-base lg:text-lg text-slate-900 dark:text-white tracking-tight">
                   {currentTabInfo.title}
                 </h1>
                 {isProUser && (
-                  <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold uppercase bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 border border-amber-400/30 flex items-center gap-1">
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold uppercase bg-emerald-50 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-300/60 flex items-center gap-1">
                     <Crown size={11} className="text-amber-500" />
                     Pro
                   </span>
@@ -100,9 +100,9 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
                   <span
                     className={`text-[9px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider ${
                       isSuperAdmin
-                        ? 'bg-purple-100 text-purple-700 dark:bg-purple-950 dark:text-purple-300 ring-1 ring-purple-400/40'
+                        ? 'bg-blue-50 text-blue-700 dark:bg-blue-950 dark:text-blue-300 ring-1 ring-blue-400/40'
                         : isAdmin
-                        ? 'bg-indigo-100 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300 ring-1 ring-indigo-400/40'
+                        ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300 ring-1 ring-emerald-400/40'
                         : 'bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-300'
                     }`}
                   >
@@ -110,7 +110,7 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
                   </span>
                 )}
               </div>
-              <span className="text-[10px] text-gray-500 dark:text-gray-400 -mt-0.5 font-medium truncate max-w-[200px]">
+              <span className="text-[10px] text-slate-500 dark:text-gray-400 -mt-0.5 font-medium truncate max-w-[200px]">
                 {currentTabInfo.subtitle}
               </span>
             </div>

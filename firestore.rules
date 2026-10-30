@@ -177,6 +177,13 @@ service cloud.firestore {
       allow update, delete: if isAdmin();
     }
 
+    // Direct Manual Payment Requests for WaveLink Pro & Harvest Pass (Private to submitting user & admins)
+    match /payment_requests/{requestId} {
+      allow read: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
+      allow update, delete: if isAdmin();
+    }
+
     // System Domains for OAuth Whitelisting tracking
     match /system_domains/{domainId} {
       allow read: if true;

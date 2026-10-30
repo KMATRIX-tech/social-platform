@@ -9,8 +9,8 @@ import {
   setDoc,
   deleteDoc
 } from 'firebase/firestore';
-import { UserProfile, Post, SupportTicket, AppSettings, PaymentGatewayConfig, PendingVerification, SystemDomain } from '../types';
-import { approveVerification, rejectVerification } from '../services/verificationService';
+import { UserProfile, Post, SupportTicket, AppSettings, PaymentGatewayConfig, PendingVerification, PaymentRequest, SystemDomain } from '../types';
+import { approveVerification, rejectVerification, approvePaymentRequest, rejectPaymentRequest } from '../services/verificationService';
 import { CrystalBadge } from './CrystalBadge';
 import {
   ShieldAlert,
@@ -20,6 +20,7 @@ import {
   UserX,
   UserCheck,
   Video,
+  Phone,
   PhoneCall,
   Lock,
   Unlock,
@@ -65,8 +66,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onReturnToFeed }
   const [tickets, setTickets] = useState<SupportTicket[]>([]);
   const [appSettings, setAppSettings] = useState<AppSettings | null>(null);
 
-  // Manual Pro Verifications & Domains state
+  // Manual Pro Verifications & Payment Requests & Domains state
   const [verifications, setVerifications] = useState<PendingVerification[]>([]);
+  const [paymentRequests, setPaymentRequests] = useState<PaymentRequest[]>([]);
   const [systemDomains, setSystemDomains] = useState<SystemDomain[]>([]);
   const [verifFilter, setVerifFilter] = useState<'pending' | 'approved' | 'rejected' | 'all'>('pending');
   const [approvingId, setApprovingId] = useState<string | null>(null);
@@ -172,6 +174,17 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onReturnToFeed }
       setVerifications(list);
     });
 
+    const unsubPaymentRequests = onSnapshot(collection(db, 'payment_requests'), (snap) => {
+      const list: PaymentRequest[] = [];
+      snap.forEach((d) => list.push({ id: d.id, ...d.data() } as PaymentRequest));
+      list.sort((a, b) => {
+        const timeA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+        const timeB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+        return timeB - timeA;
+      });
+      setPaymentRequests(list);
+    });
+
     const unsubDomains = onSnapshot(collection(db, 'system_domains'), (snap) => {
       const list: SystemDomain[] = [];
       snap.forEach((d) => list.push({ id: d.id, ...d.data() } as SystemDomain));
@@ -186,6 +199,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onReturnToFeed }
       unsubSettings();
       unsubPaymentConfig();
       unsubVerifications();
+      unsubPaymentRequests();
       unsubDomains();
     };
   }, [isAdmin]);
@@ -384,6 +398,44 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onReturnToFeed }
     }
   };
 
+  // 1-Click Approve Payment Request
+  const handleApprovePaymentRequest = async (req: PaymentRequest) => {
+    setApprovingId(req.id);
+    setActionFeedback(null);
+    try {
+      await approvePaymentRequest(req, currentUser?.email || ADMIN_EMAIL);
+      setActionFeedback(`🎉 1-Click Approved! ${req.userName || 'Subscriber'} is now WaveLink Pro! All ads removed & Verified badge activated.`);
+      setTimeout(() => setActionFeedback(null), 5000);
+    } catch (err: any) {
+      console.error('Failed to approve payment request:', err);
+      setActionFeedback(`Error approving: ${err.message || String(err)}`);
+    } finally {
+      setApprovingId(null);
+    }
+  };
+
+  // Reject Payment Request
+  const handleRejectPaymentRequest = async (req: PaymentRequest) => {
+    const reason = prompt(
+      `Enter reason for rejecting Txn ID ${req.transactionId} (${req.userName || req.userPhone}):`,
+      'SMS Transaction ID could not be matched with mobile money statement'
+    );
+    if (!reason) return;
+
+    setRejectingId(req.id);
+    setActionFeedback(null);
+    try {
+      await rejectPaymentRequest(req.id, req.userId, reason);
+      setActionFeedback(`Payment notification ${req.transactionId} rejected.`);
+      setTimeout(() => setActionFeedback(null), 4000);
+    } catch (err: any) {
+      console.error('Failed to reject payment request:', err);
+      setActionFeedback(`Error rejecting: ${err.message || String(err)}`);
+    } finally {
+      setRejectingId(null);
+    }
+  };
+
   const copyTxn = (text: string, id: string) => {
     if (navigator?.clipboard?.writeText) {
       navigator.clipboard.writeText(text);
@@ -401,7 +453,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onReturnToFeed }
   };
 
   const totalUsers = users.length;
-  const pendingVerificationsCount = verifications.filter((v) => v.status === 'pending').length;
+  const pendingPaymentRequestsCount = paymentRequests.filter((p) => p.status === 'pending').length;
+  const pendingLegacyVerificationsCount = verifications.filter((v) => v.status === 'pending').length;
+  const pendingVerificationsCount = pendingPaymentRequestsCount + pendingLegacyVerificationsCount;
   const activeUsers = users.filter((u) => u.status === 'active' && !u.isBanned).length;
   const warnedUsers = users.filter((u) => u.status === 'warned' && !u.isBanned).length;
   const bannedUsers = users.filter((u) => u.isBanned).length;
@@ -645,15 +699,15 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onReturnToFeed }
           <div className="bg-white dark:bg-[#131927] border border-gray-200 dark:border-gray-800 rounded-3xl p-6 shadow-xs space-y-5">
             <div className="flex items-center justify-between flex-wrap gap-4 border-b border-gray-100 dark:border-gray-800 pb-4">
               <div>
-                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/15 text-amber-400 text-xs font-bold uppercase tracking-wider mb-2">
+                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/15 text-emerald-400 text-xs font-bold uppercase tracking-wider mb-2">
                   <FileCheck size={14} />
-                  <span>Manual Mobile Money Verifications</span>
+                  <span>Manual Mobile Money Approvals</span>
                 </div>
                 <h3 className="text-xl font-extrabold text-gray-900 dark:text-white">
-                  SMS Transaction ID Verification Queue
+                  Payment Requests &amp; Transaction Verifications
                 </h3>
                 <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                  Approve user-submitted Airtel Money and Tigo Pesa transactions. Approving instantly awards the Verified Blue Star Pro badge and unlocks 500MB media and 1080p calls.
+                  1-Click approval queue for user payments sent to <strong>0787473334</strong>. Approving instantly grants <strong>user.isPro = true</strong>, adds the Verified Blue Star Pro badge, and strips all ads across their account.
                 </p>
               </div>
 
@@ -679,7 +733,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onReturnToFeed }
                       : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
                   }`}
                 >
-                  Approved ({verifications.filter((v) => v.status === 'approved').length})
+                  Approved ({paymentRequests.filter((p) => p.status === 'approved').length + verifications.filter((v) => v.status === 'approved').length})
                 </button>
                 <button
                   type="button"
@@ -690,7 +744,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onReturnToFeed }
                       : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
                   }`}
                 >
-                  Rejected ({verifications.filter((v) => v.status === 'rejected').length})
+                  Rejected ({paymentRequests.filter((p) => p.status === 'rejected').length + verifications.filter((v) => v.status === 'rejected').length})
                 </button>
                 <button
                   type="button"
@@ -701,25 +755,83 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onReturnToFeed }
                       : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
                   }`}
                 >
-                  All ({verifications.length})
+                  All ({paymentRequests.length + verifications.length})
                 </button>
               </div>
             </div>
 
-            {/* List of Verifications */}
+            {/* List of Unified Payment Requests */}
             {(() => {
-              const filtered = verifications.filter((v) => {
+              interface UnifiedItem {
+                id: string;
+                sourceType: 'payment_request' | 'verification';
+                userId: string;
+                userName: string;
+                userEmail: string;
+                userPhotoURL?: string;
+                phoneNumber: string;
+                plan: string;
+                planName: string;
+                amountTZS: number;
+                transactionId: string;
+                status: 'pending' | 'approved' | 'rejected';
+                submittedAt: string;
+                approvedAt?: string | null;
+                notes?: string;
+                rawRequest?: PaymentRequest;
+                rawVerification?: PendingVerification;
+              }
+
+              const unifiedList: UnifiedItem[] = [
+                ...paymentRequests.map((pr) => ({
+                  id: pr.id,
+                  sourceType: 'payment_request' as const,
+                  userId: pr.userId,
+                  userName: pr.userName || 'Subscriber',
+                  userEmail: pr.userEmail || '',
+                  userPhotoURL: pr.userPhotoURL,
+                  phoneNumber: pr.userPhone,
+                  plan: pr.plan,
+                  planName: pr.plan === 'harvest' ? 'Harvest 1-Year Pass' : 'Monthly Pro',
+                  amountTZS: pr.amountTZS || (pr.plan === 'harvest' ? 50000 : 18000),
+                  transactionId: pr.transactionId,
+                  status: pr.status,
+                  submittedAt: pr.createdAt || new Date().toISOString(),
+                  approvedAt: pr.approvedAt,
+                  rawRequest: pr
+                })),
+                ...verifications.map((v) => ({
+                  id: v.id,
+                  sourceType: 'verification' as const,
+                  userId: v.userId,
+                  userName: v.userName,
+                  userEmail: v.userEmail,
+                  userPhotoURL: v.userPhotoURL,
+                  phoneNumber: v.phoneNumber || '',
+                  plan: v.tierId,
+                  planName: v.tierName,
+                  amountTZS: v.amountTZS,
+                  transactionId: v.transactionId,
+                  status: v.status,
+                  submittedAt: v.submittedAt,
+                  approvedAt: v.approvedAt,
+                  notes: v.notes,
+                  rawVerification: v
+                }))
+              ].sort((a, b) => new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime());
+
+              const filtered = unifiedList.filter((item) => {
                 if (verifFilter === 'all') return true;
-                return v.status === verifFilter;
+                return item.status === verifFilter;
               });
 
               if (filtered.length === 0) {
                 return (
                   <div className="text-center py-12 text-gray-400 space-y-2">
                     <FileCheck size={36} className="mx-auto text-gray-500 opacity-40" />
-                    <p className="text-sm font-semibold">No transactions found in this category.</p>
+                    <p className="text-sm font-semibold">No payment notifications found in this category.</p>
                     <p className="text-xs text-gray-500">
-                      When users submit SMS Transaction IDs from the WaveLink Pro modal, they will appear here in real-time.
+                      When users submit payment notifications for Monthly Pro or Harvest Pass, they appear here in real-time.
                     </p>
                   </div>
                 );
@@ -749,12 +861,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onReturnToFeed }
                             <img
                               src={item.userPhotoURL || `https://api.dicebear.com/7.x/shapes/svg?seed=${item.userId}`}
                               alt={item.userName}
-                              className="w-12 h-12 rounded-full object-cover ring-2 ring-purple-500/30 shrink-0"
+                              className="w-12 h-12 rounded-full object-cover ring-2 ring-emerald-500/30 shrink-0"
                             />
                             <div>
                               <div className="font-extrabold text-sm text-gray-900 dark:text-white flex items-center gap-2">
                                 <span>{item.userName}</span>
-                                <span className="text-[10px] font-mono text-purple-600 dark:text-purple-400">
+                                <span className="text-[10px] font-mono text-emerald-600 dark:text-emerald-400">
                                   ID: {item.userId.substring(0, 8)}...
                                 </span>
                               </div>
@@ -762,31 +874,31 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onReturnToFeed }
                                 {item.userEmail}
                               </div>
                               {item.phoneNumber && (
-                                <div className="text-[11px] text-gray-500 dark:text-gray-400 flex items-center gap-1 mt-0.5">
-                                  <Smartphone size={12} className="text-purple-500" />
-                                  <span>Sender Phone: {item.phoneNumber}</span>
+                                <div className="text-[11px] font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5 mt-0.5">
+                                  <Phone size={12} className="text-emerald-500" />
+                                  <span>Paid From Phone: <strong className="font-mono text-emerald-600">{item.phoneNumber}</strong></span>
                                 </div>
                               )}
                             </div>
                           </div>
 
-                          {/* Carrier & Status Badges */}
+                          {/* Plan & Status Badges */}
                           <div className="flex items-center gap-2">
-                            <span className="px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-purple-100 text-purple-800 dark:bg-purple-950 dark:text-purple-300">
-                              {item.carrier}
+                            <span className="px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300">
+                              {item.planName}
                             </span>
-                            <span className="px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider bg-indigo-100 text-indigo-800 dark:bg-indigo-950 dark:text-indigo-300">
-                              {item.tierName}
+                            <span className="px-3 py-1 rounded-full text-xs font-mono font-bold bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-200">
+                              TZS {item.amountTZS.toLocaleString()}
                             </span>
                             {isPending && (
                               <span className="px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider bg-amber-500/20 text-amber-500 border border-amber-500/40 animate-pulse">
-                                Pending Verification
+                                Pending Approval
                               </span>
                             )}
                             {isApproved && (
                               <span className="px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 flex items-center gap-1">
                                 <CheckCircle2 size={13} />
-                                Approved
+                                Pro Active
                               </span>
                             )}
                             {isRejected && (
@@ -810,9 +922,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onReturnToFeed }
 
                           <div className="flex items-center gap-3">
                             <div className="text-right">
-                              <div className="text-[10px] uppercase text-slate-400 font-semibold">Payment Amount</div>
+                              <div className="text-[10px] uppercase text-slate-400 font-semibold">Subscription Plan</div>
                               <div className="text-sm font-black text-white font-mono">
-                                TZS {item.amountTZS.toLocaleString()}
+                                {item.planName}
                               </div>
                             </div>
 
@@ -827,7 +939,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onReturnToFeed }
                           </div>
                         </div>
 
-                        {/* Footer Details & Action Buttons */}
+                        {/* Footer Details & 1-Click Action Buttons */}
                         <div className="mt-4 flex items-center justify-between flex-wrap gap-3 pt-3 border-t border-gray-200/60 dark:border-gray-800/60 text-xs">
                           <div className="text-gray-500 dark:text-gray-400 text-[11px] flex items-center gap-2">
                             <Clock size={12} />
@@ -840,12 +952,18 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onReturnToFeed }
                             )}
                           </div>
 
-                          {/* Approval Actions */}
+                          {/* 1-Click Approval Actions */}
                           {isPending && (
                             <div className="flex items-center gap-2">
                               <button
                                 type="button"
-                                onClick={() => handleRejectVerification(item)}
+                                onClick={() => {
+                                  if (item.sourceType === 'payment_request' && item.rawRequest) {
+                                    handleRejectPaymentRequest(item.rawRequest);
+                                  } else if (item.rawVerification) {
+                                    handleRejectVerification(item.rawVerification);
+                                  }
+                                }}
                                 disabled={rejectingId === item.id || approvingId === item.id}
                                 className="px-3 py-1.5 rounded-xl border border-rose-300 dark:border-rose-900 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 font-bold transition disabled:opacity-50"
                               >
@@ -854,9 +972,15 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onReturnToFeed }
 
                               <button
                                 type="button"
-                                onClick={() => handleApproveVerification(item)}
+                                onClick={() => {
+                                  if (item.sourceType === 'payment_request' && item.rawRequest) {
+                                    handleApprovePaymentRequest(item.rawRequest);
+                                  } else if (item.rawVerification) {
+                                    handleApproveVerification(item.rawVerification);
+                                  }
+                                }}
                                 disabled={approvingId === item.id || rejectingId === item.id}
-                                className="px-4 py-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:opacity-95 text-white font-extrabold flex items-center gap-2 shadow-md shadow-emerald-600/30 transition disabled:opacity-50"
+                                className="px-4 py-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:opacity-95 text-white font-extrabold flex items-center gap-2 shadow-md shadow-emerald-600/30 transition disabled:opacity-50 active:scale-95"
                               >
                                 {approvingId === item.id ? (
                                   <>

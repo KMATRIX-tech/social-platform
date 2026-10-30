@@ -5,7 +5,7 @@ import {
   Home,
   Search,
   PlusCircle,
-  Bell,
+  CalendarDays,
   User,
   Crown
 } from 'lucide-react';
@@ -23,12 +23,12 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({ activeTab, set
     { id: 'feed', label: 'Home', icon: <Home size={20} /> },
     { id: 'videos', label: 'Search', icon: <Search size={20} /> },
     { id: 'studio', label: 'Create', icon: <PlusCircle size={24} className="text-white" />, isAction: true },
-    { id: 'announcements', label: 'Alerts', icon: <Bell size={20} /> },
+    { id: 'announcements', label: 'Notices', icon: <CalendarDays size={20} /> },
     { id: 'settings', label: 'Profile', icon: <User size={20} /> },
   ];
 
   return (
-    <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 dark:bg-[#0B0F19]/95 backdrop-blur-md border-t border-gray-200/80 dark:border-gray-800/80 pb-safe transition-colors shadow-2xl">
+    <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 dark:bg-[#0B0F19]/95 backdrop-blur-md border-t border-slate-200/80 dark:border-gray-800/80 pb-safe transition-colors shadow-lg">
       <div className="flex items-center justify-around h-14 max-w-md mx-auto px-2">
         {navItems.map((item) => {
           const isActive = activeTab === item.id;
@@ -41,10 +41,10 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({ activeTab, set
                 className="flex flex-col items-center justify-center -mt-4 group active:scale-90 transition-transform"
                 title="Create Wave Post or Story"
               >
-                <div className="p-2.5 rounded-2xl bg-gradient-to-tr from-purple-600 via-indigo-600 to-pink-500 shadow-lg shadow-purple-600/30 group-hover:shadow-purple-600/50 transition">
+                <div className="p-2.5 rounded-2xl bg-gradient-to-tr from-blue-500 to-emerald-500 shadow-md shadow-blue-500/25 group-hover:shadow-blue-500/40 transition">
                   {item.icon}
                 </div>
-                <span className="text-[9px] font-bold mt-1 text-purple-600 dark:text-purple-400">
+                <span className="text-[9px] font-bold mt-1 text-blue-600 dark:text-blue-400">
                   {item.label}
                 </span>
               </button>
@@ -57,8 +57,8 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({ activeTab, set
               onClick={() => setActiveTab(item.id)}
               className={`flex flex-col items-center justify-center flex-1 py-1 transition-all duration-150 relative ${
                 isActive
-                  ? 'text-purple-600 dark:text-purple-400 font-extrabold scale-105'
-                  : 'text-gray-400 dark:text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
+                  ? 'text-blue-600 dark:text-blue-400 font-extrabold scale-105'
+                  : 'text-slate-400 dark:text-gray-500 hover:text-slate-700 dark:hover:text-gray-300'
               }`}
             >
               <div className="relative">

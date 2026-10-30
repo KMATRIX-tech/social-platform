@@ -11,7 +11,9 @@ import {
   deleteDoc,
   addDoc,
   updateDoc,
-  limit
+  limit,
+  arrayUnion,
+  arrayRemove
 } from 'firebase/firestore';
 import { Post, PostComment, Announcement } from '../types';
 import { CrystalBadge } from './CrystalBadge';
@@ -20,6 +22,7 @@ import { SongPlayerCard } from './SongPlayerCard';
 import { SparkTray } from './SparkTray';
 import { AdsterraAdBanner } from './AdsterraAdBanner';
 import { shouldShowAds } from './AdsterraManager';
+import { RichEventCard } from './RichEventCard';
 import {
   Heart,
   MessageCircle,
@@ -154,6 +157,7 @@ export const FeedView: React.FC<FeedViewProps> = ({
 
   const [posts, setPosts] = useState<Post[]>([]);
   const [latestAnnouncement, setLatestAnnouncement] = useState<Announcement | null>(null);
+  const [pinnedAnnouncement, setPinnedAnnouncement] = useState<Announcement | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   // Post editing state (WaveLink Pro / Admin privilege)
@@ -180,7 +184,6 @@ export const FeedView: React.FC<FeedViewProps> = ({
   const [commentInput, setCommentInput] = useState<Record<string, string>>({});
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
-
   // Real-time listener for posts
   useEffect(() => {
     const postsQuery = query(collection(db, 'posts'), orderBy('createdAt', 'desc'));
@@ -202,18 +205,37 @@ export const FeedView: React.FC<FeedViewProps> = ({
     return () => unsub();
   }, []);
 
-  // Fetch latest announcement for the right rail widget
+  // Fetch announcements for pinned banner and right sidebar
   useEffect(() => {
-    const q = query(collection(db, 'announcements'), orderBy('createdAt', 'desc'), limit(1));
+    const q = query(collection(db, 'announcements'), orderBy('createdAt', 'desc'));
     const unsub = onSnapshot(q, (snap) => {
-      if (!snap.empty) {
-        setLatestAnnouncement({ id: snap.docs[0].id, ...snap.docs[0].data() } as Announcement);
-      } else {
-        setLatestAnnouncement(null);
-      }
+      let latest: Announcement | null = null;
+      let pinned: Announcement | null = null;
+      snap.forEach((d) => {
+        const item = { id: d.id, ...d.data() } as Announcement;
+        if (!latest) latest = item;
+        if (!pinned && item.isPinned) pinned = item;
+      });
+      setLatestAnnouncement(latest);
+      setPinnedAnnouncement(pinned);
     });
     return () => unsub();
   }, []);
+
+  // RSVP toggle for announcement card
+  const handleToggleAnnouncementRsvp = async (id: string) => {
+    if (!currentUser) return;
+    const target = pinnedAnnouncement?.id === id ? pinnedAnnouncement : latestAnnouncement;
+    if (!target) return;
+    const isGoing = target.rsvpUserIds?.includes(currentUser.uid);
+    try {
+      await updateDoc(doc(db, 'announcements', id), {
+        rsvpUserIds: isGoing ? arrayRemove(currentUser.uid) : arrayUnion(currentUser.uid)
+      });
+    } catch (err) {
+      console.error('Failed to update RSVP:', err);
+    }
+  };
 
   // Toggle comments expander
   const toggleComments = (postId: string) => {
@@ -468,22 +490,22 @@ export const FeedView: React.FC<FeedViewProps> = ({
         <div className="flex-1 min-w-0 max-w-full md:max-w-2xl w-full space-y-5 overflow-hidden">
           {/* Active Hashtag Filter Banner from Global Search */}
           {initialFilterTag && (
-            <div className="p-3.5 sm:p-4 rounded-3xl bg-gradient-to-r from-purple-950/80 via-slate-900 to-indigo-950/80 border border-purple-500/40 text-white flex items-center justify-between gap-3 shadow-md animate-in fade-in">
+            <div className="p-3.5 sm:p-4 rounded-3xl bg-gradient-to-r from-blue-600 to-emerald-600 text-white flex items-center justify-between gap-3 shadow-md animate-in fade-in">
               <div className="flex items-center gap-2.5 min-w-0">
-                <div className="p-2 rounded-xl bg-pink-500/20 text-pink-400 shrink-0">
+                <div className="p-2 rounded-2xl bg-white/20 text-white shrink-0">
                   <Hash size={18} />
                 </div>
                 <div className="min-w-0">
-                  <span className="text-[10px] text-purple-300 font-bold uppercase tracking-wider block">Hashtag Filter</span>
+                  <span className="text-[10px] text-blue-100 font-bold uppercase tracking-wider block">Hashtag Filter</span>
                   <h4 className="text-xs sm:text-sm font-extrabold truncate">
-                    Filtered by <span className="text-pink-400">{initialFilterTag}</span> ({filteredSortedPosts.length} waves)
+                    Filtered by <span className="text-emerald-200">{initialFilterTag}</span> ({filteredSortedPosts.length} waves)
                   </h4>
                 </div>
               </div>
               {onClearFilterTag && (
                 <button
                   onClick={onClearFilterTag}
-                  className="px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-white font-bold text-xs flex items-center gap-1.5 transition active:scale-95 shrink-0"
+                  className="px-3.5 py-1.5 rounded-2xl bg-white/20 hover:bg-white/30 text-white font-bold text-xs flex items-center gap-1.5 transition active:scale-95 shrink-0"
                 >
                   <span>Clear</span>
                   <X size={13} />
@@ -492,53 +514,64 @@ export const FeedView: React.FC<FeedViewProps> = ({
             </div>
           )}
 
-          {/* Vibrant Colorful Welcome Hero Banner */}
-          <div className="relative overflow-hidden rounded-3xl p-5 sm:p-7 bg-gradient-to-r from-violet-600 via-fuchsia-600 to-amber-500 text-white shadow-xl shadow-purple-900/25">
-          {/* Ambient floating spheres */}
-          <div className="absolute -top-12 -right-12 w-48 h-48 rounded-full bg-cyan-400/30 blur-2xl pointer-events-none" />
-          <div className="absolute -bottom-10 left-1/3 w-40 h-40 rounded-full bg-pink-400/30 blur-2xl pointer-events-none" />
+          {/* Warm, Bright & Inviting Welcome Hero Banner */}
+          <div className="relative overflow-hidden rounded-3xl p-5 sm:p-7 bg-gradient-to-r from-blue-600 via-sky-500 to-emerald-500 text-white shadow-lg shadow-blue-500/15">
+            {/* Ambient soft glow circles */}
+            <div className="absolute -top-12 -right-12 w-48 h-48 rounded-full bg-white/15 blur-2xl pointer-events-none" />
+            <div className="absolute -bottom-10 left-1/3 w-40 h-40 rounded-full bg-emerald-300/20 blur-2xl pointer-events-none" />
 
-          <div className="relative z-10 flex items-center justify-between flex-wrap gap-4">
-            <div>
-              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/20 backdrop-blur-md text-xs font-bold uppercase tracking-wider mb-2">
-                <Sparkles size={14} className="text-amber-300 animate-spin" style={{ animationDuration: '6s' }} />
-                <span>Explore Community Waves</span>
+            <div className="relative z-10 flex items-center justify-between flex-wrap gap-4">
+              <div>
+                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/20 backdrop-blur-md text-xs font-bold uppercase tracking-wider mb-2 border border-white/20">
+                  <Sparkles size={14} className="text-emerald-200" />
+                  <span>Welcome to the Community</span>
+                </div>
+                <h2 className="text-xl sm:text-2xl lg:text-3xl font-black tracking-tight">
+                  Welcome to WaveLink, {userProfile?.displayName?.split(' ')[0] || 'Friend'}! 🌊
+                </h2>
+                <p className="text-blue-50 text-xs sm:text-sm mt-1 max-w-xl font-medium leading-relaxed">
+                  Connect, share moments, upload photos &amp; reels, and discover creators across East Africa.
+                </p>
               </div>
-              <h2 className="text-xl sm:text-2xl lg:text-3xl font-black tracking-tight">
-                Welcome to WaveFeed, {userProfile?.displayName || 'Friend'}! 🌊
-              </h2>
-              <p className="text-purple-100 text-xs sm:text-sm mt-1 max-w-xl font-medium">
-                Share moments, post photos & reels, tip creators directly with mobile money, and connect.
-              </p>
-            </div>
 
-            <div className="flex items-center gap-2">
-              {onNavigateTab && (
-                <>
-                  <button
-                    onClick={() => onNavigateTab('monetization')}
-                    className="px-3.5 py-2 rounded-2xl bg-gradient-to-r from-amber-500 to-rose-500 hover:opacity-95 text-white font-bold text-xs flex items-center gap-1.5 border border-amber-300/40 shadow-sm active:scale-95 transition"
-                  >
-                    <Coins size={14} />
-                    <span>Monetization</span>
-                  </button>
-                  <button
-                    onClick={() => onNavigateTab('videos')}
-                    className="px-3.5 py-2 rounded-2xl bg-white/20 hover:bg-white/30 backdrop-blur-md text-white font-bold text-xs flex items-center gap-2 border border-white/30 transition shadow-sm active:scale-95"
-                  >
-                    <VideoIcon size={14} className="text-amber-300" />
-                    <span>Reels</span>
-                  </button>
-                </>
-              )}
+              <div className="flex items-center gap-2">
+                {onNavigateTab && (
+                  <>
+                    <button
+                      onClick={() => onNavigateTab('monetization')}
+                      className="px-4 py-2.5 rounded-2xl bg-white text-blue-700 hover:bg-blue-50 font-bold text-xs flex items-center gap-1.5 shadow-sm active:scale-95 transition"
+                    >
+                      <Coins size={14} className="text-emerald-600" />
+                      <span>Monetization</span>
+                    </button>
+                    <button
+                      onClick={() => onNavigateTab('videos')}
+                      className="px-4 py-2.5 rounded-2xl bg-white/20 hover:bg-white/30 backdrop-blur-md text-white font-bold text-xs flex items-center gap-2 border border-white/30 transition shadow-xs active:scale-95"
+                    >
+                      <VideoIcon size={14} className="text-emerald-200" />
+                      <span>Reels</span>
+                    </button>
+                  </>
+                )}
+              </div>
             </div>
           </div>
-        </div>
 
         {/* 24-Hour Moments Spark Tray */}
         <div className="w-full max-w-full overflow-hidden">
           <SparkTray />
         </div>
+
+        {/* Pinned Community Announcement Banner for Admins & Verified Organizations */}
+        {pinnedAnnouncement && (
+          <div className="w-full max-w-full">
+            <RichEventCard
+              announcement={pinnedAnnouncement}
+              isFeedBanner={true}
+              onRsvp={handleToggleAnnouncementRsvp}
+            />
+          </div>
+        )}
 
         {/* Center Main Feed: Post Creation Box */}
         <div className="w-full max-w-full overflow-hidden bg-white dark:bg-[#131927] border border-gray-200/90 dark:border-gray-800 rounded-3xl p-4 sm:p-5 shadow-xs transition">
@@ -598,7 +631,7 @@ export const FeedView: React.FC<FeedViewProps> = ({
                         fileInputRef.current.click();
                       }
                     }}
-                    className="px-2.5 py-1.5 rounded-xl hover:bg-purple-50 dark:hover:bg-purple-950/40 text-purple-600 dark:text-purple-400 text-xs font-semibold flex items-center gap-1.5 transition"
+                    className="px-2.5 py-1.5 rounded-xl hover:bg-blue-50 dark:hover:bg-blue-950/40 text-blue-600 dark:text-blue-400 text-xs font-semibold flex items-center gap-1.5 transition"
                   >
                     <ImageIcon size={15} />
                     <span className="hidden sm:inline">Photo</span>
@@ -612,7 +645,7 @@ export const FeedView: React.FC<FeedViewProps> = ({
                         fileInputRef.current.click();
                       }
                     }}
-                    className="px-2.5 py-1.5 rounded-xl hover:bg-pink-50 dark:hover:bg-pink-950/40 text-pink-600 dark:text-pink-400 text-xs font-semibold flex items-center gap-1.5 transition"
+                    className="px-2.5 py-1.5 rounded-xl hover:bg-emerald-50 dark:hover:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 text-xs font-semibold flex items-center gap-1.5 transition"
                   >
                     <VideoIcon size={15} />
                     <span className="hidden sm:inline">Reel</span>
@@ -622,7 +655,7 @@ export const FeedView: React.FC<FeedViewProps> = ({
                     <button
                       type="button"
                       onClick={() => onNavigateTab('studio')}
-                      className="px-2.5 py-1.5 rounded-xl hover:bg-indigo-50 dark:hover:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 text-xs font-semibold flex items-center gap-1.5 transition"
+                      className="px-2.5 py-1.5 rounded-xl hover:bg-sky-50 dark:hover:bg-sky-950/40 text-sky-600 dark:text-sky-400 text-xs font-semibold flex items-center gap-1.5 transition"
                     >
                       <Wand2 size={15} />
                       <span className="hidden sm:inline">Studio</span>
@@ -633,7 +666,7 @@ export const FeedView: React.FC<FeedViewProps> = ({
                 <button
                   onClick={handleCreatePost}
                   disabled={isSubmittingPost || (!inlineContent.trim() && !inlineMediaPreview)}
-                  className="px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-700 disabled:opacity-40 disabled:pointer-events-none text-white font-bold text-xs flex items-center gap-1.5 shadow-sm active:scale-95 transition"
+                  className="px-5 py-2.5 rounded-2xl bg-gradient-to-r from-blue-600 to-emerald-600 hover:from-blue-500 hover:to-emerald-500 disabled:opacity-40 disabled:pointer-events-none text-white font-extrabold text-xs flex items-center gap-1.5 shadow-md shadow-blue-500/20 active:scale-95 transition"
                 >
                   {isSubmittingPost ? (
                     <span>Posting...</span>
@@ -650,18 +683,18 @@ export const FeedView: React.FC<FeedViewProps> = ({
         </div>
 
           {/* Wave Studio Quick Action */}
-          <div className="bg-gradient-to-r from-purple-900/30 via-indigo-900/20 to-pink-900/25 border-2 border-purple-200/80 dark:border-purple-800/60 rounded-3xl p-5 shadow-sm flex items-center justify-between flex-wrap gap-4">
+          <div className="bg-gradient-to-r from-blue-50/80 via-sky-50/60 to-emerald-50/70 border border-blue-200/70 dark:border-blue-900/40 rounded-3xl p-5 shadow-xs flex items-center justify-between flex-wrap gap-4">
             <div className="flex items-center gap-3.5">
-              <div className="p-3 rounded-2xl bg-gradient-to-tr from-purple-600 to-pink-500 text-white shadow-md shadow-purple-600/30">
-                <Wand2 size={22} className="text-amber-300" />
+              <div className="p-3 rounded-2xl bg-gradient-to-tr from-blue-500 to-emerald-500 text-white shadow-md shadow-blue-500/20">
+                <Wand2 size={22} className="text-white" />
               </div>
               <div>
-                <h3 className="font-extrabold text-sm sm:text-base text-gray-900 dark:text-white flex items-center gap-1.5">
+                <h3 className="font-extrabold text-sm sm:text-base text-slate-900 dark:text-white flex items-center gap-1.5">
                   <span>Wave Studio Editor</span>
-                  <Sparkles size={14} className="text-amber-400" />
+                  <Sparkles size={14} className="text-emerald-500" />
                 </h3>
-                <p className="text-xs text-gray-500 dark:text-gray-400 max-w-md">
-                  Edit photos & videos, add stylish text overlays, vibe stickers, and online soundtracks to publish on the feed!
+                <p className="text-xs text-slate-600 dark:text-gray-400 max-w-md">
+                  Edit photos &amp; videos, add stylish text overlays, vibe stickers, and online soundtracks to publish on the feed!
                 </p>
               </div>
             </div>
@@ -669,7 +702,7 @@ export const FeedView: React.FC<FeedViewProps> = ({
             {onNavigateTab && (
               <button
                 onClick={() => onNavigateTab('studio')}
-                className="px-5 py-2.5 rounded-2xl bg-gradient-to-r from-purple-600 via-indigo-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white font-bold text-xs sm:text-sm flex items-center gap-2 shadow-md shadow-purple-600/25 active:scale-95 transition"
+                className="px-5 py-2.5 rounded-2xl bg-gradient-to-r from-blue-600 to-emerald-600 hover:from-blue-500 hover:to-emerald-500 text-white font-bold text-xs sm:text-sm flex items-center gap-2 shadow-sm shadow-blue-500/20 active:scale-95 transition"
               >
                 <Wand2 size={15} />
                 <span>Open Media Studio</span>
@@ -834,7 +867,7 @@ export const FeedView: React.FC<FeedViewProps> = ({
                     className={`w-full max-w-full overflow-hidden break-words bg-white dark:bg-[#131927] border rounded-3xl p-4 sm:p-6 shadow-xs transition ${
                       post.isBoosted
                         ? 'border-amber-400 dark:border-amber-500/60 ring-2 ring-amber-400/20 shadow-md shadow-amber-500/10'
-                        : 'border-gray-200/90 dark:border-gray-800 hover:border-purple-300 dark:hover:border-purple-900/60'
+                        : 'border-slate-200/80 dark:border-gray-800 hover:border-blue-300 dark:hover:border-blue-900/60 hover:shadow-sm'
                     }`}
                   >
                     {/* Author Header */}
@@ -846,7 +879,7 @@ export const FeedView: React.FC<FeedViewProps> = ({
                             `https://api.dicebear.com/7.x/shapes/svg?seed=${post.authorId}`
                           }
                           alt={post.authorName}
-                          className="w-10 h-10 rounded-full object-cover ring-2 ring-purple-500/20"
+                          className="w-10 h-10 rounded-full object-cover ring-2 ring-blue-500/20"
                         />
                         <div>
                           <div className="flex items-center gap-1.5 flex-wrap">
@@ -856,7 +889,7 @@ export const FeedView: React.FC<FeedViewProps> = ({
                               size="md"
                             />
                             {post.authorUsername && (
-                              <span className="text-xs font-mono text-purple-600 dark:text-purple-400">
+                              <span className="text-xs font-mono text-blue-600 dark:text-blue-400 font-semibold">
                                 {post.authorUsername}
                               </span>
                             )}

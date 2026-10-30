@@ -339,8 +339,8 @@ export const MonetizationHub: React.FC<MonetizationHubProps> = ({
   return (
     <div className="max-w-6xl mx-auto py-6 px-4 sm:px-6 space-y-6">
       {/* Monetization Hero Header */}
-      <div className="relative overflow-hidden rounded-3xl p-6 sm:p-8 bg-gradient-to-r from-violet-700 via-indigo-700 to-amber-600 text-white shadow-xl shadow-purple-950/25 border border-purple-500/20">
-        <div className="absolute top-0 right-0 w-80 h-80 bg-amber-400/20 rounded-full blur-3xl pointer-events-none" />
+      <div className="relative overflow-hidden rounded-3xl p-6 sm:p-8 bg-gradient-to-r from-blue-600 via-sky-600 to-emerald-600 text-white shadow-xl shadow-blue-900/15 border border-blue-400/30">
+        <div className="absolute top-0 right-0 w-80 h-80 bg-emerald-400/20 rounded-full blur-3xl pointer-events-none" />
         <div className="relative z-10 flex items-center justify-between flex-wrap gap-4">
           <div>
             <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/20 backdrop-blur-md text-xs font-bold uppercase tracking-wider mb-2">
@@ -348,16 +348,16 @@ export const MonetizationHub: React.FC<MonetizationHubProps> = ({
               <span>WaveLink Monetization Engine</span>
             </div>
             <h2 className="text-2xl sm:text-3xl font-black tracking-tight">
-              Monetization & Growth Hub
+              Monetization &amp; Growth Hub
             </h2>
-            <p className="text-purple-100 text-xs sm:text-sm mt-1 max-w-xl font-medium">
+            <p className="text-blue-50 text-xs sm:text-sm mt-1 max-w-xl font-medium">
               Manage WaveLink Pro subscriptions, enable Creator Tipping (10% platform fee), boost post reach for 2,000 TZS, and explore native in-feed affiliate revenue.
             </p>
           </div>
           <div className="flex items-center gap-2">
-            <span className="px-3.5 py-1.5 rounded-2xl bg-black/30 backdrop-blur-md text-amber-300 font-mono font-bold text-xs flex items-center gap-1.5 border border-amber-400/30">
-              <Zap size={14} className="fill-amber-300" />
-              <span>Airtel Money & AzamPay Live</span>
+            <span className="px-3.5 py-1.5 rounded-2xl bg-white/20 backdrop-blur-md text-white font-mono font-bold text-xs flex items-center gap-1.5 border border-white/30">
+              <Zap size={14} className="fill-amber-300 text-amber-300" />
+              <span>Lipa kwa Simu • Airtel Money • Tigo Pesa</span>
             </span>
           </div>
         </div>
@@ -365,39 +365,39 @@ export const MonetizationHub: React.FC<MonetizationHubProps> = ({
 
       {/* Exemption Banner for Admin, Verified by Admin, or Unlocked Pro */}
       {isExemptFromPayments && (
-        <div className="p-4 sm:p-5 rounded-3xl bg-gradient-to-r from-amber-500/20 via-purple-500/20 to-indigo-500/20 border-2 border-amber-400/80 dark:border-amber-400/50 shadow-md flex items-center justify-between flex-wrap gap-4 animate-fade-in">
+        <div className="p-4 sm:p-5 rounded-3xl bg-gradient-to-r from-amber-500/15 via-blue-500/10 to-emerald-500/15 border-2 border-emerald-400/80 shadow-xs flex items-center justify-between flex-wrap gap-4 animate-fade-in">
           <div className="flex items-center gap-3">
-            <div className="p-3 rounded-2xl bg-gradient-to-tr from-amber-400 to-rose-500 text-white shadow-md">
+            <div className="p-3 rounded-2xl bg-gradient-to-tr from-amber-400 to-emerald-500 text-white shadow-md">
               <Crown size={22} />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <span className="font-black text-sm sm:text-base text-gray-900 dark:text-white">
+                <span className="font-black text-sm sm:text-base text-slate-900">
                   {isAdmin ? 'Administrator Exemption Active' : 'Verified Pro Exemption Active'}
                 </span>
-                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
+                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase bg-emerald-100 text-emerald-800">
                   100% Free Access
                 </span>
               </div>
-              <p className="text-xs text-gray-600 dark:text-gray-300 mt-0.5">
+              <p className="text-xs text-slate-600 mt-0.5">
                 All premium features do not apply payment requirements to your account. You have permanent free access to 500MB media uploads, 1080p calls, free post boosting, and ad-free browsing.
               </p>
             </div>
           </div>
-          <div className="px-3.5 py-1.5 rounded-2xl bg-white dark:bg-gray-800 border border-amber-300 dark:border-amber-700 text-xs font-bold text-amber-700 dark:text-amber-300">
+          <div className="px-3.5 py-1.5 rounded-2xl bg-white border border-emerald-300 text-xs font-bold text-emerald-700">
             ✓ Clearance Verified
           </div>
         </div>
       )}
 
       {/* Navigation Sub-Tabs */}
-      <div className="flex rounded-2xl bg-white dark:bg-[#131927] border border-gray-200 dark:border-gray-800 p-1.5 text-xs font-bold overflow-x-auto shadow-xs gap-1">
+      <div className="flex rounded-2xl bg-white border border-slate-200/90 p-1.5 text-xs font-bold overflow-x-auto shadow-xs gap-1">
         <button
           onClick={() => setActiveSection('tiers')}
           className={`flex-1 min-w-[130px] py-2.5 px-3 rounded-xl transition flex items-center justify-center gap-2 ${
             activeSection === 'tiers'
-              ? 'bg-purple-600 text-white shadow-xs'
-              : 'text-gray-600 dark:text-gray-300 hover:text-gray-900'
+              ? 'bg-blue-600 text-white shadow-xs'
+              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
           }`}
         >
           <Crown size={15} />
@@ -407,8 +407,8 @@ export const MonetizationHub: React.FC<MonetizationHubProps> = ({
           onClick={() => setActiveSection('tipping')}
           className={`flex-1 min-w-[130px] py-2.5 px-3 rounded-xl transition flex items-center justify-center gap-2 ${
             activeSection === 'tipping'
-              ? 'bg-purple-600 text-white shadow-xs'
-              : 'text-gray-600 dark:text-gray-300 hover:text-gray-900'
+              ? 'bg-blue-600 text-white shadow-xs'
+              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
           }`}
         >
           <HandCoins size={15} />
@@ -418,8 +418,8 @@ export const MonetizationHub: React.FC<MonetizationHubProps> = ({
           onClick={() => setActiveSection('boost')}
           className={`flex-1 min-w-[130px] py-2.5 px-3 rounded-xl transition flex items-center justify-center gap-2 ${
             activeSection === 'boost'
-              ? 'bg-purple-600 text-white shadow-xs'
-              : 'text-gray-600 dark:text-gray-300 hover:text-gray-900'
+              ? 'bg-blue-600 text-white shadow-xs'
+              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
           }`}
         >
           <Rocket size={15} />
@@ -429,12 +429,12 @@ export const MonetizationHub: React.FC<MonetizationHubProps> = ({
           onClick={() => setActiveSection('affiliate')}
           className={`flex-1 min-w-[130px] py-2.5 px-3 rounded-xl transition flex items-center justify-center gap-2 ${
             activeSection === 'affiliate'
-              ? 'bg-purple-600 text-white shadow-xs'
-              : 'text-gray-600 dark:text-gray-300 hover:text-gray-900'
+              ? 'bg-blue-600 text-white shadow-xs'
+              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
           }`}
         >
           <ShoppingBag size={15} />
-          <span>In-Feed Ads & Affiliates</span>
+          <span>In-Feed Ads &amp; Affiliates</span>
         </button>
       </div>
 
@@ -539,143 +539,77 @@ export const MonetizationHub: React.FC<MonetizationHubProps> = ({
             })}
           </div>
 
-          {/* Interactive Airtel Money USSD Push Checkout Card */}
-          <div className="bg-white dark:bg-[#131927] border-2 border-purple-200 dark:border-purple-900/60 rounded-3xl p-6 sm:p-8 shadow-md">
-            <div className="flex items-center justify-between pb-4 border-b border-gray-100 dark:border-gray-800 mb-6 flex-wrap gap-3">
+          {/* Clean Manual Lipa kwa Simu Till Card */}
+          <div className="bg-white border-2 border-blue-200/90 rounded-3xl p-6 sm:p-8 shadow-sm">
+            <div className="flex items-center justify-between pb-4 border-b border-slate-100 mb-6 flex-wrap gap-3">
               <div className="flex items-center gap-3">
-                <div className="p-3 rounded-2xl bg-red-500/10 text-red-600 dark:text-red-400 ring-2 ring-red-500/20">
+                <div className="p-3 rounded-2xl bg-gradient-to-tr from-blue-500 to-emerald-500 text-white shadow-md shadow-blue-500/20">
                   <Smartphone size={22} />
                 </div>
                 <div>
-                  <h4 className="font-extrabold text-base text-gray-900 dark:text-white flex items-center gap-2">
-                    <span>Airtel Money & AzamPay USSD Checkout</span>
-                    <span className="px-2 py-0.5 rounded-full text-[10px] font-black uppercase bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300">
-                      Direct Push *150*60#
+                  <h4 className="font-extrabold text-base text-slate-900 flex items-center gap-2">
+                    <span>Manual Lipa kwa Simu / Mobile Money</span>
+                    <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase bg-emerald-100 text-emerald-800 border border-emerald-200">
+                      Till: [YOUR_TILL_NUMBER]
                     </span>
                   </h4>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">
-                    Selected: <strong className="text-purple-600 dark:text-purple-400">{selectedTier.name}</strong> (TZS {selectedTier.priceTZS.toLocaleString()})
+                  <p className="text-xs text-slate-500">
+                    Selected Plan: <strong className="text-blue-600 font-bold">{selectedTier.name}</strong> (TZS {selectedTier.priceTZS.toLocaleString()})
                   </p>
                 </div>
               </div>
 
               <div className="flex items-center gap-2">
-                <span className="text-[11px] font-mono text-gray-400">
-                  Endpoint: sandbox.azampay.co.tz/azampay/mno/checkout
-                </span>
+                <button
+                  type="button"
+                  onClick={() => setIsGeneralModalOpen(true)}
+                  className="px-4 py-2 rounded-2xl bg-gradient-to-r from-blue-600 to-emerald-600 hover:from-blue-500 hover:to-emerald-500 text-white text-xs font-bold shadow-md shadow-blue-500/20 transition active:scale-95 flex items-center gap-1.5"
+                >
+                  <Gift size={14} />
+                  <span>Enter Coupon or Submit Ref Code</span>
+                </button>
               </div>
             </div>
 
-            {/* Step: Phone Entry */}
-            {checkoutStep === 'idle' && (
-              <form onSubmit={handleTriggerSubscription} className="space-y-4 max-w-xl">
+            {/* Till Instruction Box */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="p-5 rounded-2xl bg-gradient-to-br from-blue-50/70 via-sky-50/40 to-emerald-50/50 border border-blue-200/80 space-y-2">
+                <div className="text-[11px] uppercase tracking-wider font-extrabold text-slate-500">
+                  Send TZS 18,000 via Lipa kwa Simu to Till Number:
+                </div>
+                <div className="text-2xl font-black font-mono text-blue-600 tracking-wider">
+                  [YOUR_TILL_NUMBER]
+                </div>
+                <div className="text-xs text-slate-600 font-medium">
+                  Merchant Name: <strong className="text-slate-900">WaveLink</strong>
+                </div>
+                <div className="pt-2 text-xs text-slate-500 leading-relaxed">
+                  Pay directly from Airtel Money (*150*60#), Tigo Pesa (*150*01#), or M-Pesa (*150*00#).
+                </div>
+              </div>
+
+              <div className="p-5 rounded-2xl bg-slate-50 border border-slate-200/90 flex flex-col justify-between space-y-4">
                 <div>
-                  <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1.5">
-                    Enter Airtel Money / Mobile Money Number:
-                  </label>
-                  <div className="relative">
-                    <Phone className="absolute left-3.5 top-3 text-purple-500" size={16} />
-                    <input
-                      type="tel"
-                      required
-                      value={subscriptionPhone}
-                      onChange={(e) => handlePhoneChange(e.target.value)}
-                      placeholder="e.g. 0784 123 456 or +255 784..."
-                      className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-xs sm:text-sm text-gray-900 dark:text-white font-mono focus:outline-none focus:ring-2 focus:ring-purple-500"
-                    />
+                  <div className="flex items-center gap-2 text-xs font-bold text-slate-900 mb-1">
+                    <ShieldCheck size={16} className="text-emerald-500" />
+                    <span>Direct Admin Verification</span>
                   </div>
-                  <p className="text-[11px] text-gray-500 mt-1">
-                    A USSD prompt will be triggered immediately to your phone to approve TZS {selectedTier.priceTZS.toLocaleString()}.
+                  <p className="text-xs text-slate-500 leading-relaxed">
+                    After completing the payment on your phone, click below to paste your SMS Transaction Reference ID or enter coupon code <strong className="text-emerald-600 font-mono">HARVEST2026</strong> for an instant free pass!
                   </p>
                 </div>
 
                 <button
-                  type="submit"
-                  disabled={isSubscribing}
-                  className="py-3 px-6 rounded-xl bg-gradient-to-r from-purple-600 via-indigo-600 to-pink-600 hover:opacity-95 text-white font-black text-xs sm:text-sm flex items-center justify-center gap-2 shadow-lg shadow-purple-600/25 transition disabled:opacity-50"
+                  type="button"
+                  onClick={() => setIsGeneralModalOpen(true)}
+                  className="w-full py-3 px-5 rounded-2xl bg-gradient-to-r from-blue-600 to-emerald-600 hover:from-blue-500 hover:to-emerald-500 text-white font-extrabold text-xs shadow-md transition active:scale-95 flex items-center justify-center gap-2"
                 >
-                  <Zap size={16} />
-                  <span>Send USSD Push for TZS {selectedTier.priceTZS.toLocaleString()}</span>
-                  <ArrowRight size={16} />
+                  <Crown size={15} />
+                  <span>Open Payment &amp; Verification Modal</span>
+                  <ArrowRight size={15} />
                 </button>
-              </form>
-            )}
-
-            {/* Step: Initiating or Waiting PIN */}
-            {(checkoutStep === 'initiating' || checkoutStep === 'waiting_pin') && (
-              <div className="py-6 max-w-md mx-auto text-center space-y-4 animate-fade-in">
-                <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-700 dark:text-amber-300 text-xs font-black">
-                  <span className="w-2.5 h-2.5 rounded-full bg-amber-500 animate-ping inline-block" />
-                  <span>{checkoutStatus || 'Waiting for PIN...'}</span>
-                </div>
-
-                {/* Handset Simulation Box */}
-                <div className="bg-slate-900 text-white rounded-2xl p-5 border-2 border-amber-400/50 shadow-2xl text-left space-y-3 font-mono text-xs">
-                  <div className="flex items-center justify-between pb-2 border-b border-gray-700">
-                    <span className="font-bold text-amber-400 flex items-center gap-1.5">
-                      <span>🔴 Airtel Money</span>
-                    </span>
-                    <span className="text-[10px] text-gray-400">Ref: {activeSubTx?.reference || 'WVL-AZAM'}</span>
-                  </div>
-                  <p className="text-gray-200 text-xs leading-relaxed">
-                    Lipa TZS {selectedTier.priceTZS.toLocaleString()} kwa WaveLink {selectedTier.name}?
-                    <br />
-                    Weka PIN yako ya Mobile Money kuthibitisha:
-                  </p>
-                  <div>
-                    <input
-                      type="password"
-                      maxLength={4}
-                      value={pinInput}
-                      onChange={(e) => setPinInput(e.target.value.replace(/[^0-9]/g, ''))}
-                      placeholder="Enter 4-digit PIN (e.g. 1234)"
-                      className="w-full px-3 py-2 rounded-xl bg-black/60 border border-amber-400/60 text-amber-300 placeholder-gray-500 text-sm tracking-widest text-center focus:outline-none focus:ring-2 focus:ring-amber-400"
-                    />
-                  </div>
-                </div>
-
-                <div className="flex items-center justify-center gap-3 pt-2">
-                  <button
-                    onClick={() => setCheckoutStep('idle')}
-                    className="px-4 py-2 text-xs font-semibold rounded-xl text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    onClick={handleConfirmSubPin}
-                    disabled={isSubscribing || pinInput.length < 4}
-                    className="px-6 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs sm:text-sm flex items-center gap-2 shadow-md shadow-emerald-600/30 transition disabled:opacity-50"
-                  >
-                    {isSubscribing ? (
-                      <>
-                        <Loader2 size={14} className="animate-spin" />
-                        <span>Authorizing PIN...</span>
-                      </>
-                    ) : (
-                      <>
-                        <Lock size={14} />
-                        <span>Authorize & Activate {selectedTier.name}</span>
-                      </>
-                    )}
-                  </button>
-                </div>
               </div>
-            )}
-
-            {/* Step: Success */}
-            {checkoutStep === 'success' && (
-              <div className="py-6 text-center space-y-3 animate-fade-in">
-                <div className="w-16 h-16 rounded-full bg-emerald-500 text-white mx-auto flex items-center justify-center shadow-lg shadow-emerald-500/30">
-                  <CheckCircle2 size={32} />
-                </div>
-                <h4 className="text-xl font-black text-gray-900 dark:text-white">
-                  Payment Successful!
-                </h4>
-                <p className="text-xs text-gray-500 max-w-sm mx-auto">
-                  Your WaveLink {selectedTier.name} is now active. All Pro privileges, 500MB uploads, and 1080p calls are unlocked!
-                </p>
-              </div>
-            )}
+            </div>
           </div>
         </div>
       )}

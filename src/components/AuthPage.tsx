@@ -211,38 +211,38 @@ export const AuthPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen relative flex items-center justify-center p-4 sm:p-6 overflow-hidden bg-[#070A12] text-white">
-      {/* Dynamic ambient dark-mode teal & purple background glows */}
+    <div className="min-h-screen relative flex items-center justify-center p-4 sm:p-6 overflow-hidden bg-gradient-to-br from-slate-50 via-sky-50/40 to-emerald-50/30 text-slate-900">
+      {/* Ambient background pastel glows */}
       <div
-        className="absolute top-[-15%] left-[-15%] w-[600px] h-[600px] rounded-full bg-teal-500/15 blur-[120px] pointer-events-none animate-pulse"
+        className="absolute top-[-15%] left-[-15%] w-[600px] h-[600px] rounded-full bg-blue-300/20 blur-[120px] pointer-events-none animate-pulse"
         style={{ animationDuration: '7s' }}
       />
       <div
-        className="absolute bottom-[-15%] right-[-15%] w-[650px] h-[650px] rounded-full bg-purple-600/20 blur-[130px] pointer-events-none"
+        className="absolute bottom-[-15%] right-[-15%] w-[650px] h-[650px] rounded-full bg-emerald-300/20 blur-[130px] pointer-events-none"
       />
       <div
-        className="absolute top-[40%] right-[25%] w-[420px] h-[420px] rounded-full bg-indigo-500/15 blur-[100px] pointer-events-none"
+        className="absolute top-[40%] right-[25%] w-[420px] h-[420px] rounded-full bg-sky-200/25 blur-[100px] pointer-events-none"
       />
 
       {/* Main Container Card */}
       <div className="relative w-full max-w-md z-10">
         {/* Brand header */}
         <div className="text-center mb-6">
-          <div className="inline-flex items-center justify-center p-3.5 rounded-2xl bg-gradient-to-tr from-teal-500 via-indigo-600 to-purple-600 shadow-xl shadow-teal-950/40 mb-3 ring-1 ring-white/20">
+          <div className="inline-flex items-center justify-center p-3.5 rounded-2xl bg-gradient-to-tr from-blue-500 to-emerald-500 shadow-lg shadow-blue-500/20 mb-3 ring-1 ring-white">
             <Waves className="w-8 h-8 text-white animate-bounce" style={{ animationDuration: '3s' }} />
           </div>
-          <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight bg-gradient-to-r from-teal-200 via-white to-purple-200 bg-clip-text text-transparent">
+          <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight bg-gradient-to-r from-blue-600 via-sky-500 to-emerald-600 bg-clip-text text-transparent">
             WaveLink
           </h1>
-          <p className="mt-1 text-xs sm:text-sm text-slate-400 font-medium">
+          <p className="mt-1 text-xs sm:text-sm text-slate-600 font-medium">
             Connect, Share, and Discover on Africa&apos;s Social Network
           </p>
         </div>
 
-        {/* Unified Glassmorphism Card */}
-        <div className="bg-slate-900/85 backdrop-blur-2xl border border-teal-500/20 rounded-3xl p-6 sm:p-8 shadow-2xl shadow-black/80">
+        {/* Unified Light Glass Card */}
+        <div className="bg-white/95 backdrop-blur-xl border border-slate-200/90 rounded-3xl p-6 sm:p-8 shadow-xl shadow-slate-200/60">
           {/* Mode Switcher Tabs: Sign In vs Sign Up */}
-          <div className="grid grid-cols-2 p-1 bg-slate-950/80 rounded-2xl border border-slate-800 mb-5">
+          <div className="grid grid-cols-2 p-1 bg-slate-100 rounded-2xl border border-slate-200/60 mb-5">
             <button
               type="button"
               onClick={() => {
@@ -252,8 +252,8 @@ export const AuthPage: React.FC = () => {
               }}
               className={`py-2 px-3 rounded-xl text-xs sm:text-sm font-bold flex items-center justify-center gap-1.5 transition ${
                 authMode === 'signin'
-                  ? 'bg-gradient-to-r from-teal-500 to-indigo-600 text-white shadow-md'
-                  : 'text-slate-400 hover:text-white'
+                  ? 'bg-blue-600 text-white shadow-xs'
+                  : 'text-slate-600 hover:text-slate-900'
               }`}
             >
               <LogIn size={15} />
@@ -268,8 +268,8 @@ export const AuthPage: React.FC = () => {
               }}
               className={`py-2 px-3 rounded-xl text-xs sm:text-sm font-bold flex items-center justify-center gap-1.5 transition ${
                 authMode === 'signup'
-                  ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-md'
-                  : 'text-slate-400 hover:text-white'
+                  ? 'bg-emerald-600 text-white shadow-xs'
+                  : 'text-slate-600 hover:text-slate-900'
               }`}
             >
               <UserPlus size={15} />
@@ -278,15 +278,15 @@ export const AuthPage: React.FC = () => {
           </div>
 
           <div className="mb-4 text-center">
-            <h2 className="text-base font-bold text-white flex items-center justify-center gap-2">
-              <Sparkles size={16} className={authMode === 'signup' ? 'text-pink-400' : 'text-teal-400'} />
+            <h2 className="text-base font-bold text-slate-900 flex items-center justify-center gap-2">
+              <Sparkles size={16} className={authMode === 'signup' ? 'text-emerald-500' : 'text-blue-500'} />
               <span>
                 {authMode === 'signup'
                   ? 'Join WaveLink Community'
                   : 'Welcome Back to WaveLink'}
               </span>
             </h2>
-            <p className="text-xs text-slate-400 mt-1">
+            <p className="text-xs text-slate-500 mt-1">
               {authMode === 'signup'
                 ? 'Sign up with built-in Firebase to create your verified profile'
                 : 'Sign in to access your feed, reels, and mobile money wallet'}
@@ -295,8 +295,8 @@ export const AuthPage: React.FC = () => {
 
           {/* Feedback messages */}
           {error && (
-            <div className="mb-4 p-3 rounded-xl bg-rose-500/15 border border-rose-500/30 text-rose-300 text-xs flex items-start gap-2.5 animate-in fade-in">
-              <AlertCircle size={16} className="text-rose-400 shrink-0 mt-0.5" />
+            <div className="mb-4 p-3 rounded-2xl bg-rose-50 border border-rose-200 text-rose-700 text-xs flex items-start gap-2.5 animate-in fade-in">
+              <AlertCircle size={16} className="text-rose-500 shrink-0 mt-0.5" />
               <div className="flex-1">
                 <span>{error}</span>
               </div>
@@ -304,8 +304,8 @@ export const AuthPage: React.FC = () => {
           )}
 
           {statusMessage && !error && (
-            <div className="mb-4 p-3 rounded-xl bg-teal-500/15 border border-teal-500/30 text-teal-300 text-xs flex items-center gap-2 animate-in fade-in">
-              <div className="w-3.5 h-3.5 border-2 border-teal-300 border-t-transparent rounded-full animate-spin shrink-0" />
+            <div className="mb-4 p-3 rounded-2xl bg-blue-50 border border-blue-200 text-blue-700 text-xs flex items-center gap-2 animate-in fade-in">
+              <div className="w-3.5 h-3.5 border-2 border-blue-600 border-t-transparent rounded-full animate-spin shrink-0" />
               <span>{statusMessage}</span>
             </div>
           )}
@@ -315,10 +315,10 @@ export const AuthPage: React.FC = () => {
             type="button"
             onClick={handleGoogleSignIn}
             disabled={isGoogleLoading || isLoading}
-            className="w-full py-3 px-4 rounded-xl bg-slate-950/80 hover:bg-slate-800/80 border border-slate-700/80 text-white font-semibold text-xs sm:text-sm flex items-center justify-center gap-3 transition shadow-md active:scale-[0.99] disabled:opacity-50"
+            className="w-full py-3 px-4 rounded-2xl bg-white hover:bg-slate-50 border border-slate-200 text-slate-800 font-semibold text-xs sm:text-sm flex items-center justify-center gap-3 transition shadow-xs active:scale-[0.99] disabled:opacity-50"
           >
             {isGoogleLoading ? (
-              <div className="w-4 h-4 border-2 border-teal-400 border-t-transparent rounded-full animate-spin" />
+              <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
             ) : (
               <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24">
                 <path
@@ -343,11 +343,11 @@ export const AuthPage: React.FC = () => {
           </button>
 
           <div className="flex items-center my-4">
-            <div className="flex-1 border-t border-slate-800" />
-            <span className="px-3 text-[10px] uppercase tracking-wider text-slate-500 font-semibold">
+            <div className="flex-1 border-t border-slate-200" />
+            <span className="px-3 text-[10px] uppercase tracking-wider text-slate-400 font-bold">
               or with email &amp; password
             </span>
-            <div className="flex-1 border-t border-slate-800" />
+            <div className="flex-1 border-t border-slate-200" />
           </div>
 
           {/* 2. Built-in Firebase Sign In & Sign Up Form */}
@@ -355,34 +355,34 @@ export const AuthPage: React.FC = () => {
             {authMode === 'signup' && (
               <>
                 <div>
-                  <label className="block text-xs font-medium text-slate-300 mb-1">
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
                     Full Name / Display Name
                   </label>
                   <div className="relative">
-                    <User className="absolute left-3.5 top-3.5 text-pink-400/70" size={16} />
+                    <User className="absolute left-3.5 top-3.5 text-slate-400" size={16} />
                     <input
                       type="text"
                       required
                       value={displayName}
                       onChange={(e) => setDisplayName(e.target.value)}
                       placeholder="e.g. Keylan Mbilinyi"
-                      className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-slate-950/70 border border-slate-800 text-white placeholder-slate-500 focus:outline-none focus:border-pink-500/60 focus:ring-2 focus:ring-pink-500/20 text-xs sm:text-sm transition"
+                      className="w-full pl-10 pr-4 py-2.5 rounded-2xl bg-slate-50 border border-slate-200 text-slate-900 placeholder-slate-400 focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 text-xs sm:text-sm transition"
                     />
                   </div>
                 </div>
 
                 <div>
-                  <label className="block text-xs font-medium text-slate-300 mb-1">
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
                     Username (optional)
                   </label>
                   <div className="relative">
-                    <AtSign className="absolute left-3.5 top-3.5 text-purple-400/70" size={16} />
+                    <AtSign className="absolute left-3.5 top-3.5 text-slate-400" size={16} />
                     <input
                       type="text"
                       value={username}
                       onChange={(e) => setUsername(e.target.value)}
                       placeholder="e.g. keylan"
-                      className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-slate-950/70 border border-slate-800 text-white placeholder-slate-500 focus:outline-none focus:border-purple-500/60 focus:ring-2 focus:ring-purple-500/20 text-xs sm:text-sm transition"
+                      className="w-full pl-10 pr-4 py-2.5 rounded-2xl bg-slate-50 border border-slate-200 text-slate-900 placeholder-slate-400 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 text-xs sm:text-sm transition"
                     />
                   </div>
                 </div>
@@ -390,31 +390,31 @@ export const AuthPage: React.FC = () => {
             )}
 
             <div>
-              <label className="block text-xs font-medium text-slate-300 mb-1">
+              <label className="block text-xs font-semibold text-slate-700 mb-1">
                 Email Address
               </label>
               <div className="relative">
-                <Mail className="absolute left-3.5 top-3.5 text-teal-400/70" size={16} />
+                <Mail className="absolute left-3.5 top-3.5 text-slate-400" size={16} />
                 <input
                   type="email"
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="name@domain.com"
-                  className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-slate-950/70 border border-slate-800 text-white placeholder-slate-500 focus:outline-none focus:border-teal-500/60 focus:ring-2 focus:ring-teal-500/20 text-xs sm:text-sm transition"
+                  className="w-full pl-10 pr-4 py-2.5 rounded-2xl bg-slate-50 border border-slate-200 text-slate-900 placeholder-slate-400 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 text-xs sm:text-sm transition"
                 />
               </div>
             </div>
 
             <div>
               <div className="flex items-center justify-between mb-1">
-                <label className="block text-xs font-medium text-slate-300">
+                <label className="block text-xs font-semibold text-slate-700">
                   Password
                 </label>
-                <span className="text-[10px] text-slate-500">Min. 6 characters</span>
+                <span className="text-[10px] text-slate-400">Min. 6 characters</span>
               </div>
               <div className="relative">
-                <Lock className="absolute left-3.5 top-3.5 text-purple-400/70" size={16} />
+                <Lock className="absolute left-3.5 top-3.5 text-slate-400" size={16} />
                 <input
                   type={showPassword ? 'text' : 'password'}
                   required
@@ -422,12 +422,12 @@ export const AuthPage: React.FC = () => {
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••"
                   minLength={6}
-                  className="w-full pl-10 pr-10 py-2.5 rounded-xl bg-slate-950/70 border border-slate-800 text-white placeholder-slate-500 focus:outline-none focus:border-purple-500/60 focus:ring-2 focus:ring-purple-500/20 text-xs sm:text-sm transition"
+                  className="w-full pl-10 pr-10 py-2.5 rounded-2xl bg-slate-50 border border-slate-200 text-slate-900 placeholder-slate-400 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 text-xs sm:text-sm transition"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-3 text-slate-500 hover:text-slate-300 transition"
+                  className="absolute right-3.5 top-3.5 text-slate-400 hover:text-slate-600 transition"
                   title={showPassword ? 'Hide password' : 'Show password'}
                 >
                   {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
@@ -438,10 +438,10 @@ export const AuthPage: React.FC = () => {
             <button
               type="submit"
               disabled={isLoading || isGoogleLoading}
-              className={`w-full mt-2 py-3 px-4 rounded-xl font-bold text-xs sm:text-sm text-white flex items-center justify-center gap-2 shadow-lg active:scale-[0.99] transition disabled:opacity-50 ${
+              className={`w-full mt-2 py-3 px-4 rounded-2xl font-extrabold text-xs sm:text-sm text-white flex items-center justify-center gap-2 shadow-md active:scale-[0.99] transition disabled:opacity-50 ${
                 authMode === 'signup'
-                  ? 'bg-gradient-to-r from-purple-600 via-indigo-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 shadow-purple-950/50'
-                  : 'bg-gradient-to-r from-teal-500 via-indigo-600 to-purple-600 hover:from-teal-400 hover:to-purple-500 shadow-teal-950/50'
+                  ? 'bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 shadow-emerald-500/20'
+                  : 'bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 shadow-blue-500/20'
               }`}
             >
               {isLoading ? (
@@ -458,7 +458,7 @@ export const AuthPage: React.FC = () => {
           {/* Toggle between modes */}
           <div className="mt-4 text-center">
             {authMode === 'signin' ? (
-              <p className="text-xs text-slate-400">
+              <p className="text-xs text-slate-600">
                 Don&apos;t have an account yet?{' '}
                 <button
                   type="button"
@@ -467,13 +467,13 @@ export const AuthPage: React.FC = () => {
                     setError(null);
                     setStatusMessage(null);
                   }}
-                  className="text-pink-400 hover:text-pink-300 font-bold underline transition"
+                  className="text-emerald-600 hover:text-emerald-700 font-bold underline transition"
                 >
                   Sign Up Here
                 </button>
               </p>
             ) : (
-              <p className="text-xs text-slate-400">
+              <p className="text-xs text-slate-600">
                 Already registered?{' '}
                 <button
                   type="button"
@@ -482,7 +482,7 @@ export const AuthPage: React.FC = () => {
                     setError(null);
                     setStatusMessage(null);
                   }}
-                  className="text-teal-400 hover:text-teal-300 font-bold underline transition"
+                  className="text-blue-600 hover:text-blue-700 font-bold underline transition"
                 >
                   Sign In Here
                 </button>
@@ -491,21 +491,21 @@ export const AuthPage: React.FC = () => {
           </div>
 
           {/* Quick Helper for Platform Owner (Keylan) */}
-          <div className="mt-5 pt-4 border-t border-slate-800/80 flex items-center justify-between text-[11px] text-slate-400">
+          <div className="mt-5 pt-4 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-500">
             <button
               type="button"
               onClick={handleOwnerQuickAccess}
-              className="inline-flex items-center gap-1.5 text-teal-400 hover:text-teal-300 font-medium transition"
+              className="inline-flex items-center gap-1.5 text-blue-600 hover:text-blue-700 font-semibold transition"
               title="Quickly fill Platform Owner (Keylan) credentials"
             >
-              <Crown size={12} className="text-amber-400" />
+              <Crown size={13} className="text-amber-500" />
               <span>Owner (Keylan) 1-Click Access</span>
             </button>
           </div>
         </div>
 
         {/* Footer credits */}
-        <p className="text-center text-[11px] text-slate-500 mt-6">
+        <p className="text-center text-[11px] text-slate-400 mt-6 font-medium">
           WaveLink © 2026. Empowering East African Creators.
         </p>
       </div>

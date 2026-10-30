@@ -42,9 +42,9 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     } else {
       root.classList.remove('dark');
       body?.classList.remove('dark');
-      root.style.backgroundColor = '#F8F9FA';
+      root.style.backgroundColor = '#F8FAFC';
       root.style.colorScheme = 'light';
-      if (body) body.style.backgroundColor = '#F8F9FA';
+      if (body) body.style.backgroundColor = '#F8FAFC';
     }
 
     localStorage.setItem('wavelink_theme', theme);
