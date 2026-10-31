@@ -24,6 +24,7 @@
         "proBadge": { "type": "string", "enum": ["verified", "vip", "creator", "founder"] },
         "proBorderEffect": { "type": "string", "enum": ["aura-gold", "neon-pulse", "cosmic-glow", "emerald-ring", "none"] },
         "proAccentColor": { "type": "string", "enum": ["purple", "gold", "emerald", "neon", "crimson"] },
+        "points": { "type": "number" },
         "wavePoints": { "type": "number" },
         "loginStreak": { "type": "number" },
         "lastDailyRewardDate": { "type": "string" },

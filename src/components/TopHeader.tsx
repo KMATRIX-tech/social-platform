@@ -15,6 +15,7 @@ import { PWAInstallButton } from './PWAInstallButton';
 import { GlobalSearchBar } from './GlobalSearchBar';
 import { NotificationsPopover } from './NotificationsPopover';
 import { DailyRewardModal } from './DailyRewardModal';
+import { CompactPointsDisplay } from './CompactPointsDisplay';
 
 interface TopHeaderProps {
   activeTab: ActiveTab;
@@ -52,7 +53,7 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
 
   const todayKey = getLocalDateKey();
   const isClaimedToday = userProfile?.lastDailyRewardDate === todayKey;
-  const wavePoints = userProfile?.wavePoints ?? DAILY_REWARD_SCHEDULE[0];
+  const wavePoints = userProfile?.points ?? userProfile?.wavePoints ?? DAILY_REWARD_SCHEDULE[0];
   const loginStreak = Math.max(1, userProfile?.loginStreak ?? 1);
   const todayBonus = userProfile?.lastDailyRewardAmount ?? DAILY_REWARD_SCHEDULE[(loginStreak - 1) % DAILY_REWARD_SCHEDULE.length];
 
@@ -127,42 +128,48 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
               />
             </div>
 
-            {/* Right: Profile Daily Reward Pill, Quick Post Event & Studio Actions, Notifications & PWA */}
+            {/* Right: Profile Avatar + Real-Time Compact Points Display, Daily Streak, Actions & Notifications */}
             <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
-              {/* Profile Daily Reward & Streak Header Badge */}
-              <button
-                type="button"
-                onClick={() => setIsDailyRewardOpen(true)}
-                className="flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1.5 rounded-2xl bg-gradient-to-r from-amber-50 via-blue-50/70 to-emerald-50 hover:from-amber-100/80 hover:to-emerald-100/80 border border-amber-200/80 text-[#0F172A] shadow-2xs transition active:scale-95"
-                title={`Daily Login Reward: +${todayBonus} pts today • ${loginStreak}-Day Streak • ${wavePoints} Total WavePoints`}
-              >
-                <img
-                  src={
-                    userProfile?.photoURL ||
-                    currentUser?.photoURL ||
-                    `https://api.dicebear.com/7.x/shapes/svg?seed=${currentUser?.uid || 'user'}`
-                  }
-                  alt="Profile"
-                  className="w-5 h-5 rounded-full object-cover ring-1 ring-amber-400 hidden sm:block"
+              {/* Profile Avatar & Real-Time Compact Points Display */}
+              <div className="flex items-center gap-1.5 p-1 pr-1.5 rounded-full bg-[#F8FAFC] border border-slate-200/90 shadow-2xs">
+                <button
+                  type="button"
+                  onClick={() => (onNavigateTab ? onNavigateTab('settings') : setIsDailyRewardOpen(true))}
+                  className="relative flex items-center justify-center rounded-full focus:outline-none transition transform active:scale-95"
+                  title={`${userProfile?.displayName || 'Profile'} • Click for Profile Settings`}
+                >
+                  <img
+                    src={
+                      userProfile?.photoURL ||
+                      currentUser?.photoURL ||
+                      `https://api.dicebear.com/7.x/shapes/svg?seed=${currentUser?.uid || 'user'}`
+                    }
+                    alt={userProfile?.displayName || 'Profile Avatar'}
+                    className="w-7 h-7 sm:w-8 sm:h-8 rounded-full object-cover ring-2 ring-[#3B82F6]/40"
+                  />
+                  <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-[#10B981] ring-2 ring-white" />
+                </button>
+
+                {/* Real-time Firestore Points Badge right next to Profile Avatar */}
+                <CompactPointsDisplay
+                  userId={currentUser?.uid}
+                  onClick={() => setIsDailyRewardOpen(true)}
                 />
-                <div className="flex items-center gap-1 text-xs font-extrabold text-amber-700">
-                  <Coins size={13} className="text-amber-500 shrink-0" />
-                  <span className="font-mono">{wavePoints}</span>
-                  <span className="hidden md:inline text-[10px] font-bold text-slate-500">pts</span>
-                </div>
-                <span className="h-3 w-[1px] bg-slate-200" />
-                <div className="flex items-center gap-0.5 text-[11px] font-extrabold text-orange-600">
+
+                {/* Daily Streak & Bonus Indicator */}
+                <button
+                  type="button"
+                  onClick={() => setIsDailyRewardOpen(true)}
+                  className="hidden sm:inline-flex items-center gap-1 px-2 py-1 rounded-full bg-orange-50 hover:bg-orange-100/80 border border-orange-200/80 text-[11px] font-extrabold text-orange-600 transition active:scale-95"
+                  title={`Daily Login Reward: +${todayBonus} pts today • ${loginStreak}-Day Streak • ${wavePoints} Total Points`}
+                >
                   <Flame size={12} className="fill-orange-500 text-orange-500 shrink-0" />
                   <span>{loginStreak}d</span>
-                </div>
-                {isClaimedToday ? (
-                  <span className="hidden xl:inline-flex items-center px-1.5 py-0.5 rounded-full bg-emerald-100 text-[#10B981] text-[9px] font-black uppercase">
-                    +{todayBonus}
-                  </span>
-                ) : (
-                  <Gift size={12} className="text-[#3B82F6] animate-bounce" />
-                )}
-              </button>
+                  {!isClaimedToday && (
+                    <Gift size={11} className="text-[#3B82F6] animate-bounce ml-0.5" />
+                  )}
+                </button>
+              </div>
 
               {onNavigateTab && (
                 <>

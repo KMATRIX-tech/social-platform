@@ -6,6 +6,7 @@ import { CrystalBadge } from './CrystalBadge';
 import { SupportDeskView } from './SupportDeskView';
 import { MobileMoneyPaymentModal } from './MobileMoneyPaymentModal';
 import { DailyRewardModal } from './DailyRewardModal';
+import { CompactPointsDisplay } from './CompactPointsDisplay';
 import { PRO_TIERS } from '../services/paymentService';
 import {
   Settings,
@@ -176,6 +177,10 @@ export const SettingsView: React.FC = () => {
                 <span className="text-xs font-mono font-bold text-[#3B82F6] bg-blue-50 px-2.5 py-0.5 rounded-full border border-blue-200/70">
                   {userProfile?.username || username}
                 </span>
+                <CompactPointsDisplay
+                  userId={currentUser?.uid}
+                  onClick={() => setIsDailyRewardModalOpen(true)}
+                />
               </div>
               <p className="text-xs sm:text-sm text-slate-600 mt-1 max-w-xl">
                 {userProfile?.bio || bio || 'Connecting on WaveLink 🌊'}

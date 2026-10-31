@@ -34,6 +34,7 @@ export interface UserProfile {
   lastSeen?: string;
   lastSeenAt?: string;
   // Daily Login Reward & Habitual Engagement System
+  points?: number;
   wavePoints?: number;
   loginStreak?: number;
   lastDailyRewardDate?: string; // YYYY-MM-DD local date
