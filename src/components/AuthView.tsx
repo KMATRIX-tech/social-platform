@@ -104,41 +104,41 @@ export const AuthView: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen relative flex items-center justify-center p-4 sm:p-6 overflow-hidden bg-gradient-to-br from-indigo-950 via-slate-950 to-purple-950 text-white">
-      {/* Ambient background glows */}
+    <div className="min-h-screen relative flex items-center justify-center p-4 sm:p-6 overflow-hidden animate-aurora-bg text-[#0F172A]">
+      {/* Moving colourful ambient orbs */}
       <div
-        className="absolute top-[-10%] left-[-10%] w-[550px] h-[550px] rounded-full bg-purple-600/20 blur-3xl pointer-events-none animate-pulse"
-        style={{ animationDuration: '6s' }}
+        className="absolute top-[-10%] left-[-10%] w-[550px] h-[550px] rounded-full bg-gradient-to-br from-blue-500/40 via-cyan-400/35 to-emerald-400/35 blur-3xl pointer-events-none animate-orb-1"
       />
-      <div className="absolute bottom-[-10%] right-[-10%] w-[600px] h-[600px] rounded-full bg-pink-600/15 blur-3xl pointer-events-none" />
-      <div className="absolute top-[35%] right-[15%] w-[400px] h-[400px] rounded-full bg-cyan-600/15 blur-3xl pointer-events-none" />
+      <div className="absolute bottom-[-10%] right-[-10%] w-[600px] h-[600px] rounded-full bg-gradient-to-tr from-pink-500/35 via-purple-500/35 to-amber-400/35 blur-3xl pointer-events-none animate-orb-2" />
+      <div className="absolute top-[35%] right-[15%] w-[400px] h-[400px] rounded-full bg-gradient-to-bl from-cyan-500/35 via-emerald-400/30 to-blue-500/35 blur-3xl pointer-events-none animate-orb-3" />
 
       {/* Main card */}
       <div className="relative w-full max-w-md z-10">
         {/* Brand header */}
         <div className="text-center mb-6">
-          <div className="inline-flex items-center justify-center p-3.5 rounded-2xl bg-gradient-to-tr from-purple-600 via-indigo-600 to-pink-500 shadow-xl shadow-purple-950/50 mb-3 ring-1 ring-white/20">
+          <div className="inline-flex items-center justify-center p-3.5 rounded-2xl animate-moving-btn shadow-xl shadow-blue-500/30 mb-3 ring-4 ring-white/80">
             <Waves className="w-8 h-8 text-white animate-bounce" style={{ animationDuration: '3s' }} />
           </div>
-          <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight bg-gradient-to-r from-white via-purple-100 to-pink-200 bg-clip-text text-transparent">
+          <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight animate-moving-text">
             WaveLink
           </h1>
-          <div className="mt-1.5 inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full bg-purple-500/20 border border-purple-500/30 text-purple-300 text-xs font-semibold">
-            <Crown size={12} className="text-amber-400" />
+          <div className="mt-1.5 inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full bg-white/80 border border-purple-300 text-purple-700 text-xs font-semibold">
+            <Crown size={12} className="text-amber-500" />
             <span>Private Platform • Owner Edition</span>
           </div>
-          <p className="mt-2 text-xs text-purple-200/70 font-medium">
-            Exclusive access reserved for <span className="text-white font-mono">{ADMIN_EMAIL}</span>
+          <p className="mt-2 text-xs text-slate-600 font-medium">
+            Exclusive access reserved for <span className="text-[#0F172A] font-mono font-bold">{ADMIN_EMAIL}</span>
           </p>
         </div>
 
         {/* Auth form box */}
-        <div className="bg-white/10 backdrop-blur-xl border border-white/15 rounded-3xl p-5 sm:p-7 shadow-2xl shadow-black/60">
+        <div className="p-[3px] rounded-3xl animate-vibrant-ribbon shadow-2xl">
+        <div className="bg-white/95 backdrop-blur-xl rounded-[21px] p-5 sm:p-7">
           {/* Strict Owner Lock Notice */}
-          <div className="mb-4 p-3 rounded-2xl bg-purple-950/60 border border-purple-500/30 text-xs text-purple-200 flex items-start gap-2.5">
-            <ShieldCheck size={18} className="text-amber-400 shrink-0 mt-0.5" />
+          <div className="mb-4 p-3 rounded-2xl bg-purple-50 border border-purple-200 text-xs text-purple-800 flex items-start gap-2.5">
+            <ShieldCheck size={18} className="text-amber-500 shrink-0 mt-0.5" />
             <div className="text-[11px] leading-relaxed">
-              <span className="font-semibold text-white">Owner Security Gate Active:</span> All other registrations and sign-ins are strictly blocked.
+              <span className="font-semibold text-[#0F172A]">Owner Security Gate Active:</span> All other registrations and sign-ins are strictly blocked.
             </div>
           </div>
 
@@ -148,7 +148,7 @@ export const AuthView: React.FC = () => {
               type="button"
               onClick={handleOwnerQuickLaunch}
               disabled={quickLoading || isSubmitting}
-              className="w-full py-3 px-4 rounded-2xl bg-gradient-to-r from-amber-500 via-purple-600 to-indigo-600 hover:from-amber-400 hover:to-indigo-500 font-bold text-sm text-white flex items-center justify-center gap-2.5 shadow-xl shadow-purple-950/60 active:scale-[0.99] transition border border-amber-300/30 disabled:opacity-50"
+              className="w-full py-3 px-4 rounded-2xl animate-moving-btn font-bold text-sm text-white flex items-center justify-center gap-2.5 shadow-xl shadow-blue-500/30 active:scale-[0.99] transition disabled:opacity-50"
             >
               {quickLoading ? (
                 <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
@@ -303,12 +303,13 @@ export const AuthView: React.FC = () => {
           </div>
 
           {/* Footer note */}
-          <div className="mt-4 pt-3 border-t border-white/10 flex items-center justify-between text-[11px] text-purple-200/60">
+          <div className="mt-4 pt-3 border-t border-slate-200 flex items-center justify-between text-[11px] text-slate-600">
             <span className="flex items-center gap-1">
-              <Sparkles size={11} className="text-amber-400" />
-              Owner: <code className="text-purple-300 font-mono">keylanmbilinyi5@...</code>
+              <Sparkles size={11} className="text-amber-500" />
+              Owner: <code className="text-blue-600 font-mono">keylanmbilinyi5@...</code>
             </span>
           </div>
+        </div>
         </div>
       </div>
     </div>
