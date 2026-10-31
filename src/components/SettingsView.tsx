@@ -32,10 +32,11 @@ import {
 } from 'lucide-react';
 
 import { LegalModal, LegalDocType } from './LegalModals';
+import { compressImage } from '../utils/mediaStorage';
 
 export const SettingsView: React.FC = () => {
   const { currentUser, userProfile, isAdmin, isSuperAdmin, isSubAdmin, isProEffective, updateUserProfile } = useAuth();
-  const { theme, setTheme } = useTheme();
+  const { theme } = useTheme();
 
   const [activeSettingsSection, setActiveSettingsSection] = useState<'profile' | 'pro' | 'support' | 'legal'>('profile');
   const [selectedLegalDoc, setSelectedLegalDoc] = useState<LegalDocType | null>(null);
@@ -56,19 +57,27 @@ export const SettingsView: React.FC = () => {
 
   const isProUser = isProEffective;
 
-  // File upload for profile picture from local folders
-  const handleAvatarFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+  // File upload for profile picture from local folders (compressed for Firestore)
+  const handleAvatarFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const result = event.target?.result as string;
-      if (result) {
-        setPhotoURL(result);
+    try {
+      const compressed = await compressImage(file, 400, 400, 0.85);
+      if (compressed) {
+        setPhotoURL(compressed);
       }
-    };
-    reader.readAsDataURL(file);
+    } catch {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const result = event.target?.result as string;
+        if (result) {
+          setPhotoURL(result);
+        }
+      };
+      reader.readAsDataURL(file);
+    }
+    e.target.value = '';
   };
 
   const handleSaveProfile = async (e: React.FormEvent) => {
@@ -93,32 +102,6 @@ export const SettingsView: React.FC = () => {
       setIsSaving(false);
     }
   };
-
-  const themeOptions: {
-    id: ThemeMode;
-    title: string;
-    description: string;
-    icon: React.ReactNode;
-  }[] = [
-    {
-      id: 'light',
-      title: 'Light (Recommended)',
-      description: 'Clean bright background (#F8FAFC / #FFFFFF), soft rounded cards, crisp dark text (#0F172A), and sky blue & emerald accents',
-      icon: <Sun size={20} className="text-amber-500" />
-    },
-    {
-      id: 'dark',
-      title: 'Dark',
-      description: 'Deep slate background with soft luminous blue and emerald highlights',
-      icon: <Moon size={20} className="text-[#3B82F6]" />
-    },
-    {
-      id: 'system',
-      title: 'Match my device',
-      description: 'Automatically synchronizes with your operating system light/dark preference',
-      icon: <Laptop size={20} className="text-[#10B981]" />
-    }
-  ];
 
   const borderOptions: { id: ProBorderEffect; name: string; ringClass: string }[] = [
     { id: 'aura-gold', name: 'Golden Aura ✨', ringClass: 'pro-aura-gold ring-4 ring-amber-400' },
@@ -636,58 +619,25 @@ export const SettingsView: React.FC = () => {
             </form>
           </div>
 
-          {/* Theme Mode Box: Light default (#F8FAFC) with Instant switching */}
-          <div className="bg-white border border-slate-200/80 rounded-3xl p-6 shadow-[0_4px_24px_-4px_rgba(15,23,42,0.06)] space-y-4">
-            <div>
-              <h3 className="font-bold text-[#0F172A] text-base">
-                Appearance & Theme Mode
-              </h3>
-              <p className="text-xs text-slate-500 mt-0.5">
-                Choose your preferred styling mode. Light mode applies the signature #F8FAFC / #FFFFFF bright aesthetic.
-              </p>
+          {/* Pure White Light Theme Confirmation Box */}
+          <div className="bg-white border border-slate-200/90 rounded-3xl p-6 shadow-[0_2px_16px_-4px_rgba(15,23,42,0.05)] flex items-center justify-between flex-wrap gap-4">
+            <div className="flex items-center gap-3.5">
+              <div className="p-3 rounded-2xl bg-amber-50 border border-amber-200/80 text-amber-500">
+                <Sun size={22} />
+              </div>
+              <div>
+                <h3 className="font-extrabold text-[#0F172A] text-base">
+                  Pure White Light Mode Active
+                </h3>
+                <p className="text-xs text-slate-500 mt-0.5 max-w-xl">
+                  WaveLink is styled in a crisp, high-contrast Pure White Light theme (#FFFFFF / #F8FAFC) with deep slate typography (#0F172A) across all screens.
+                </p>
+              </div>
             </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-1">
-              {themeOptions.map((opt) => {
-                const isSelected = theme === opt.id;
-
-                return (
-                  <div
-                    key={opt.id}
-                    onClick={() => setTheme(opt.id)}
-                    className={`cursor-pointer rounded-2xl p-5 border-2 transition-all relative flex flex-col justify-between ${
-                      isSelected
-                        ? 'border-[#3B82F6] bg-blue-50/40 ring-2 ring-blue-500/15 shadow-sm'
-                        : 'border-slate-200 hover:border-blue-300 bg-[#F8FAFC]'
-                    }`}
-                  >
-                    <div>
-                      <div className="flex items-center justify-between mb-3">
-                        <div className="p-2 rounded-xl bg-white shadow-2xs border border-slate-100">
-                          {opt.icon}
-                        </div>
-                        {isSelected && (
-                          <span className="w-5 h-5 rounded-full bg-[#3B82F6] text-white flex items-center justify-center">
-                            <Check size={12} />
-                          </span>
-                        )}
-                      </div>
-
-                      <h4 className="font-bold text-sm text-[#0F172A] mb-1">
-                        {opt.title}
-                      </h4>
-                      <p className="text-xs text-slate-500 leading-relaxed">
-                        {opt.description}
-                      </p>
-                    </div>
-
-                    <div className="mt-4 pt-3 border-t border-slate-200/60 flex items-center justify-between text-[11px] font-semibold text-[#3B82F6]">
-                      <span>{isSelected ? 'Active Mode' : 'Click to select'}</span>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
+            <span className="px-3.5 py-1.5 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs font-extrabold flex items-center gap-1.5">
+              <Check size={14} className="text-[#10B981]" />
+              <span>Always On ({theme.toUpperCase()})</span>
+            </span>
           </div>
         </div>
       )}

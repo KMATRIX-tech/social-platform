@@ -31,6 +31,7 @@ export interface UserProfile {
   proBorderEffect?: ProBorderEffect;
   proAccentColor?: ProAccentColor;
   isOnline?: boolean;
+  lastSeen?: string;
   lastSeenAt?: string;
   createdAt: string;
   updatedAt?: string;
@@ -206,7 +207,15 @@ export interface ChannelMessage {
   replyToSenderName?: string;
   isEdited?: boolean;
   isDeleted?: boolean;
+  readBy?: string[];
+  lastSeenAt?: string;
   createdAt: string;
+  updatedAt?: string;
+}
+
+export interface ChatChannelMeta {
+  id: string;
+  lastSeen?: Record<string, string>;
   updatedAt?: string;
 }
 
@@ -228,6 +237,7 @@ export interface ChatGroup {
   creatorEmail: string;
   adminIds: string[];
   memberIds: string[];
+  lastSeen?: Record<string, string>;
   createdAt: string;
   updatedAt?: string;
 }

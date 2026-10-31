@@ -1,6 +1,7 @@
 import { initializeApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
 import { getFirestore, setLogLevel, doc, getDoc } from 'firebase/firestore';
+import { getStorage } from 'firebase/storage';
 import firebaseAppletConfig from '../firebase-applet-config.json';
 
 export const firebaseConfig = firebaseAppletConfig;
@@ -13,6 +14,8 @@ const app = initializeApp(firebaseConfig);
 export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId);
 
 export const auth = getAuth(app);
+
+export const storage = getStorage(app);
 
 export const ADMIN_EMAIL = 'keylanmbilinyi5@gmail.com';
 export const ADMIN_EMAIL_ALT = 'keylanmbilinyi5@gnail.com';

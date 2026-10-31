@@ -28,7 +28,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({ activeTab, set
   ];
 
   return (
-    <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 dark:bg-[#0B0F19]/95 backdrop-blur-md border-t border-slate-200/80 dark:border-gray-800/80 pb-safe transition-colors shadow-lg">
+    <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-slate-200/90 pb-safe shadow-lg">
       <div className="flex items-center justify-around h-14 max-w-md mx-auto px-2">
         {navItems.map((item) => {
           const isActive = activeTab === item.id;
@@ -41,10 +41,10 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({ activeTab, set
                 className="flex flex-col items-center justify-center -mt-4 group active:scale-90 transition-transform"
                 title="Create Wave Post or Story"
               >
-                <div className="p-2.5 rounded-2xl bg-gradient-to-tr from-blue-500 to-emerald-500 shadow-md shadow-blue-500/25 group-hover:shadow-blue-500/40 transition">
+                <div className="p-2.5 rounded-2xl bg-gradient-to-tr from-[#3B82F6] to-[#10B981] shadow-md shadow-blue-500/25 group-hover:shadow-blue-500/40 transition">
                   {item.icon}
                 </div>
-                <span className="text-[9px] font-bold mt-1 text-blue-600 dark:text-blue-400">
+                <span className="text-[9px] font-bold mt-1 text-[#3B82F6]">
                   {item.label}
                 </span>
               </button>
@@ -57,14 +57,14 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({ activeTab, set
               onClick={() => setActiveTab(item.id)}
               className={`flex flex-col items-center justify-center flex-1 py-1 transition-all duration-150 relative ${
                 isActive
-                  ? 'text-blue-600 dark:text-blue-400 font-extrabold scale-105'
-                  : 'text-slate-400 dark:text-gray-500 hover:text-slate-700 dark:hover:text-gray-300'
+                  ? 'text-[#3B82F6] font-extrabold scale-105'
+                  : 'text-slate-400 hover:text-slate-700'
               }`}
             >
               <div className="relative">
                 {item.icon}
                 {item.id === 'announcements' && (
-                  <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-pink-500 ring-2 ring-white dark:ring-[#0B0F19]" />
+                  <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-emerald-500 ring-2 ring-white" />
                 )}
                 {item.id === 'settings' && isProUser && (
                   <Crown size={9} className="absolute -top-1.5 -right-1.5 text-amber-400 fill-amber-400" />

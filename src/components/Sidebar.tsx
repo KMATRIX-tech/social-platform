@@ -1,6 +1,5 @@
 import React from 'react';
 import { useAuth } from '../context/AuthContext';
-import { useTheme } from '../context/ThemeContext';
 import { CrystalBadge } from './CrystalBadge';
 import { ActiveTab } from '../types';
 import { PWAInstallButton } from './PWAInstallButton';
@@ -9,15 +8,11 @@ import {
   Waves,
   Rss,
   Film,
-  Megaphone,
   MessageSquare,
   Users,
   Shield,
   Settings,
   LogOut,
-  Sun,
-  Moon,
-  Laptop,
   X,
   Wand2,
   BarChart3,
@@ -32,28 +27,29 @@ interface SidebarProps {
   setActiveTab: (tab: ActiveTab) => void;
   isOpenMobile: boolean;
   onCloseMobile: () => void;
+  onOpenWelink?: () => void;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
   activeTab,
   setActiveTab,
   isOpenMobile,
-  onCloseMobile
+  onCloseMobile,
+  onOpenWelink
 }) => {
   const { currentUser, userProfile, isAdmin, isSuperAdmin, isSubAdmin, isProEffective, signOut } = useAuth();
-  const { theme, setTheme } = useTheme();
 
   const isProUser = isProEffective;
 
   const navItems: { id: ActiveTab; label: string; icon: React.ReactNode; badge?: string }[] = [
-    { id: 'feed', label: 'Home', icon: <Rss size={18} /> },
-    { id: 'videos', label: 'Explore', icon: <Film size={18} /> },
-    { id: 'studio', label: 'Create', icon: <Wand2 size={18} />, badge: 'Studio' },
+    { id: 'feed', label: 'Home Feed', icon: <Rss size={18} /> },
+    { id: 'videos', label: 'Video Reels', icon: <Film size={18} /> },
+    { id: 'studio', label: 'Media Studio', icon: <Wand2 size={18} />, badge: 'Create' },
     { id: 'announcements', label: 'Notice Board & Events', icon: <CalendarDays size={18} />, badge: 'Events' },
     { id: 'chat', label: 'Messages', icon: <MessageSquare size={18} /> },
     { id: 'monetization', label: 'Monetization Hub', icon: <Coins size={18} />, badge: 'TZS' },
     { id: 'directory', label: 'Members', icon: <Users size={18} /> },
-    { id: 'analytics', label: 'Analytics', icon: <BarChart3 size={18} />, badge: isProUser ? 'Pro' : undefined },
+    { id: 'analytics', label: 'Creator Analytics', icon: <BarChart3 size={18} />, badge: isProUser ? 'Pro' : undefined },
     // Restrict Admin / Moderator Desk to authorized admins
     ...(isAdmin
       ? [{
@@ -63,38 +59,31 @@ export const Sidebar: React.FC<SidebarProps> = ({
           badge: isSuperAdmin ? 'Owner' : 'Mod'
         }]
       : []),
-    { id: 'settings', label: 'Profile', icon: <Settings size={18} /> },
+    { id: 'settings', label: 'Profile & Settings', icon: <Settings size={18} /> },
   ];
-
 
   const handleSelectTab = (tab: ActiveTab) => {
     setActiveTab(tab);
     onCloseMobile();
   };
 
-  const cycleTheme = () => {
-    if (theme === 'light') setTheme('dark');
-    else if (theme === 'dark') setTheme('system');
-    else setTheme('light');
-  };
-
   const sidebarContent = (
-    <div className="flex flex-col h-full bg-[#FFFFFF] dark:bg-[#0f1422] border-r border-slate-200/80 dark:border-gray-800 transition-colors select-none shadow-[2px_0_16px_-4px_rgba(15,23,42,0.04)]">
+    <div className="flex flex-col h-full bg-[#ffffff] border-r border-slate-200/90 select-none shadow-[2px_0_16px_-4px_rgba(15,23,42,0.04)]">
       {/* Brand Header */}
-      <div className="p-5 border-b border-slate-100 dark:border-gray-800/80 flex items-center justify-between">
+      <div className="px-5 py-4 border-b border-slate-100 bg-[#f8fafc]/60 flex items-center justify-between">
         <div
           onClick={() => handleSelectTab('feed')}
           className="flex items-center gap-3 cursor-pointer group"
         >
-          <div className="p-2.5 rounded-2xl bg-gradient-to-tr from-[#3B82F6] to-[#10B981] text-white shadow-md shadow-blue-500/20 group-hover:scale-105 transition-transform">
-            <Waves size={22} />
+          <div className="p-2.5 rounded-2xl bg-gradient-to-tr from-[#2563eb] to-[#10B981] text-white shadow-sm shadow-blue-600/20 group-hover:scale-105 transition-transform">
+            <Waves size={21} />
           </div>
           <div className="flex flex-col">
-            <span className="font-extrabold text-xl tracking-tight text-[#0F172A] dark:text-white">
-              Wave<span className="text-[#3B82F6]">Link</span>
+            <span className="font-extrabold text-xl tracking-tight text-[#1e293b]">
+              Wave<span className="text-[#2563eb]">Link</span>
             </span>
-            <span className="text-[10px] font-semibold text-slate-400 dark:text-gray-500 -mt-0.5">
-              Connect &amp; Share
+            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 -mt-0.5">
+              Community Platform
             </span>
           </div>
         </div>
@@ -102,7 +91,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         {isOpenMobile && (
           <button
             onClick={onCloseMobile}
-            className="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-gray-200 rounded-xl md:hidden"
+            className="p-1.5 text-[#1e293b] hover:text-[#2563eb] rounded-xl md:hidden"
           >
             <X size={18} />
           </button>
@@ -110,9 +99,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
       </div>
 
       {/* Navigation List */}
-      <div className="flex-1 overflow-y-auto px-3.5 py-4 space-y-1">
-        <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-gray-500 px-3 py-1 mb-1">
-          Menu
+      <div className="flex-1 overflow-y-auto px-3.5 py-4 space-y-1 bg-[#ffffff]">
+        <div className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 px-3 py-1 mb-1">
+          Platform Navigation
         </div>
 
         {navItems.map((item) => {
@@ -125,12 +114,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
               onClick={() => handleSelectTab(item.id)}
               className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-2xl text-xs sm:text-sm font-bold transition-all duration-150 ${
                 isActive
-                  ? 'bg-[#3B82F6] text-white shadow-md shadow-blue-500/20'
-                  : 'text-[#0F172A] dark:text-gray-300 hover:bg-[#F8FAFC] dark:hover:bg-gray-800/60'
+                  ? 'bg-[#2563eb] text-white shadow-sm shadow-blue-600/25'
+                  : 'text-[#1e293b] hover:bg-[#f8fafc] hover:text-[#2563eb]'
               }`}
             >
               <div className="flex items-center gap-3">
-                <span className={isActive ? 'text-white' : 'text-slate-400 dark:text-gray-400'}>
+                <span className={isActive ? 'text-white' : 'text-[#1e293b]'}>
                   {item.icon}
                 </span>
                 <span>{item.label}</span>
@@ -142,8 +131,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     isActive
                       ? 'bg-white/25 text-white'
                       : isItemAdmin && isAdmin
-                      ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300'
-                      : 'bg-slate-100 text-slate-600 dark:bg-gray-800 dark:text-gray-400'
+                      ? 'bg-emerald-100 text-emerald-700'
+                      : 'bg-[#f8fafc] text-[#2563eb] border border-blue-200/70'
                   }`}
                 >
                   {item.badge}
@@ -152,6 +141,27 @@ export const Sidebar: React.FC<SidebarProps> = ({
             </button>
           );
         })}
+
+        {onOpenWelink && (
+          <button
+            type="button"
+            onClick={() => {
+              onCloseMobile();
+              onOpenWelink();
+            }}
+            className="w-full flex items-center justify-between px-3.5 py-2.5 rounded-2xl text-xs sm:text-sm font-bold text-[#1e293b] hover:bg-blue-50/80 hover:text-[#2563eb] transition-all duration-150 mt-1 border border-blue-100 bg-[#f8fafc]"
+          >
+            <div className="flex items-center gap-3">
+              <span className="text-[#2563eb]">
+                <Waves size={18} />
+              </span>
+              <span>WELINK AI Guide</span>
+            </div>
+            <span className="text-[9px] font-extrabold px-2 py-0.5 rounded-full uppercase tracking-wider bg-gradient-to-r from-[#2563eb] to-[#10B981] text-white">
+              Pro AI
+            </span>
+          </button>
+        )}
       </div>
 
       {/* WaveLink Pro Shortcut / Upgrade Button */}
@@ -159,7 +169,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         {!isProUser ? (
           <button
             onClick={() => handleSelectTab('monetization')}
-            className="w-full p-3 rounded-2xl bg-gradient-to-r from-[#3B82F6] to-[#10B981] hover:opacity-95 text-white shadow-md shadow-blue-500/20 active:scale-95 transition flex items-center justify-between gap-2 group"
+            className="w-full p-3 rounded-2xl bg-gradient-to-r from-[#2563eb] to-[#10B981] hover:opacity-95 text-white shadow-sm shadow-blue-600/20 active:scale-95 transition flex items-center justify-between gap-2 group"
           >
             <div className="flex items-center gap-2 text-left min-w-0">
               <div className="p-1.5 rounded-xl bg-white/20">
@@ -167,18 +177,18 @@ export const Sidebar: React.FC<SidebarProps> = ({
               </div>
               <div className="min-w-0">
                 <span className="text-xs font-black block tracking-tight">Upgrade to Pro</span>
-                <span className="text-[10px] text-blue-100 block truncate">18,000 TZS • 0787473334</span>
+                <span className="text-[10px] text-blue-50 block truncate">18,000 TZS • 0787473334</span>
               </div>
             </div>
             <Sparkles size={14} className="text-amber-200 shrink-0 group-hover:rotate-12 transition-transform" />
           </button>
         ) : (
-          <div className="p-2.5 rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 flex items-center justify-between text-xs">
-            <span className="text-[11px] font-bold text-emerald-800 dark:text-emerald-300 flex items-center gap-1.5">
+          <div className="p-2.5 rounded-2xl bg-emerald-50 border border-emerald-200 flex items-center justify-between text-xs">
+            <span className="text-[11px] font-bold text-emerald-800 flex items-center gap-1.5">
               <Crown size={13} className="text-amber-500" />
               <span>WaveLink Pro Active</span>
             </span>
-            <span className="text-[10px] text-emerald-700 dark:text-emerald-300 font-bold bg-emerald-100 dark:bg-emerald-900/60 px-2 py-0.5 rounded-full">VIP</span>
+            <span className="text-[10px] text-emerald-700 font-bold bg-emerald-100 px-2 py-0.5 rounded-full">VIP</span>
           </div>
         )}
 
@@ -195,8 +205,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
       </div>
 
       {/* User Account Footer */}
-      <div className="p-3.5 border-t border-slate-100 dark:border-gray-800/80 bg-[#F8FAFC] dark:bg-[#0c101c]/50">
-        <div className="flex items-center justify-between gap-2 p-2.5 rounded-2xl bg-[#FFFFFF] dark:bg-gray-800/70 border border-slate-200/80 dark:border-gray-700/60 shadow-2xs">
+      <div className="p-3.5 border-t border-slate-100 bg-[#F8FAFC]">
+        <div className="flex items-center justify-between gap-2 p-2.5 rounded-2xl bg-[#FFFFFF] border border-slate-200/90 shadow-2xs">
           <div
             onClick={() => handleSelectTab('settings')}
             className="flex items-center gap-2.5 cursor-pointer min-w-0 flex-1"
@@ -233,20 +243,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </div>
 
           <div className="flex items-center gap-1 shrink-0">
-            <button
-              onClick={cycleTheme}
-              title={`Switch Theme (Current: ${theme})`}
-              className="p-1.5 text-slate-500 hover:text-[#3B82F6] rounded-xl transition"
-            >
-              {theme === 'light' ? (
-                <Sun size={15} className="text-amber-500" />
-              ) : theme === 'dark' ? (
-                <Moon size={15} className="text-[#3B82F6]" />
-              ) : (
-                <Laptop size={15} className="text-[#10B981]" />
-              )}
-            </button>
-
             <button
               onClick={signOut}
               title="Sign Out"

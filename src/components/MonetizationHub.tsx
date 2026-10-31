@@ -54,7 +54,7 @@ interface MonetizationHubProps {
 export const MonetizationHub: React.FC<MonetizationHubProps> = ({
   onNavigateToFeed
 }) => {
-  const { currentUser, userProfile, isAdmin, isProEffective, isExemptFromPayments, activateHarvestPass, showGlobalToast } = useAuth();
+  const { currentUser, userProfile, isAdmin, isProEffective, isExemptFromPayments, activateHarvestPass, verifyAndRedeemCoupon, showGlobalToast } = useAuth();
   const isProUser = isProEffective;
   const [copiedAdminPhone, setCopiedAdminPhone] = useState(false);
   const [hubPromoCode, setHubPromoCode] = useState('');
@@ -80,11 +80,12 @@ export const MonetizationHub: React.FC<MonetizationHubProps> = ({
     setHubPromoError(null);
     setIsRedeemingHubPromo(true);
     try {
-      if (clean === 'HARVEST2026') {
-        await activateHarvestPass();
+      const isValid = clean === 'HARVEST2026' ? (await activateHarvestPass(), true) : await verifyAndRedeemCoupon(clean);
+      if (isValid) {
         setHubPromoCode('');
+        setIsGeneralModalOpen(false);
       } else {
-        setHubPromoError('Invalid code. Enter HARVEST2026 for a 1-year VIP pass.');
+        setHubPromoError('Invalid or expired coupon code. Please verify your code and try again.');
       }
     } finally {
       setIsRedeemingHubPromo(false);
@@ -575,21 +576,21 @@ export const MonetizationHub: React.FC<MonetizationHubProps> = ({
           </div>
 
           {/* Official Admin Direct Mobile Money Payment Card */}
-          <div className="bg-white border-2 border-blue-200/90 rounded-3xl p-6 sm:p-8 shadow-sm">
-            <div className="flex items-center justify-between pb-4 border-b border-slate-100 mb-6 flex-wrap gap-3">
-              <div className="flex items-center gap-3">
-                <div className="p-3 rounded-2xl bg-gradient-to-tr from-blue-500 to-emerald-500 text-white shadow-md shadow-blue-500/20">
+          <div className="bg-white border border-slate-200/90 rounded-3xl p-6 sm:p-8 shadow-[0_6px_28px_-4px_rgba(15,23,42,0.06)]">
+            <div className="flex items-center justify-between pb-5 border-b border-slate-100 mb-6 flex-wrap gap-3">
+              <div className="flex items-center gap-3.5">
+                <div className="p-3 rounded-2xl bg-gradient-to-tr from-[#2563eb] to-[#10B981] text-white shadow-sm shadow-blue-500/20">
                   <Smartphone size={22} />
                 </div>
                 <div>
-                  <h4 className="font-extrabold text-base text-slate-900 flex items-center gap-2 flex-wrap">
+                  <h4 className="font-extrabold text-base sm:text-lg text-[#0F172A] flex items-center gap-2 flex-wrap">
                     <span>WaveLink Official Admin Mobile Money</span>
                     <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase bg-emerald-100 text-emerald-800 border border-emerald-200 font-mono tabular-nums">
                       0787473334
                     </span>
                   </h4>
-                  <p className="text-xs text-slate-500">
-                    Selected Plan: <strong className="text-blue-600 font-bold">{selectedTier.name}</strong> (TZS {selectedTier.priceTZS.toLocaleString()})
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    Selected Plan: <strong className="text-[#2563eb] font-bold">{selectedTier.name}</strong> (TZS {selectedTier.priceTZS.toLocaleString()})
                   </p>
                 </div>
               </div>
@@ -598,7 +599,7 @@ export const MonetizationHub: React.FC<MonetizationHubProps> = ({
                 <button
                   type="button"
                   onClick={() => setIsGeneralModalOpen(true)}
-                  className="px-4 py-2 rounded-2xl bg-gradient-to-r from-blue-600 to-emerald-600 hover:from-blue-500 hover:to-emerald-500 text-white text-xs font-bold shadow-md shadow-blue-500/20 transition active:scale-95 flex items-center gap-1.5"
+                  className="px-4 py-2.5 rounded-2xl bg-gradient-to-r from-[#2563eb] to-[#10B981] hover:opacity-95 text-white text-xs font-bold shadow-sm shadow-blue-500/20 transition active:scale-95 flex items-center gap-1.5"
                 >
                   <Gift size={14} />
                   <span>Submit Transaction ID or Coupon</span>
@@ -607,14 +608,14 @@ export const MonetizationHub: React.FC<MonetizationHubProps> = ({
             </div>
 
             {/* Official Admin Number & Promo Box */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="p-5 rounded-2xl bg-gradient-to-br from-blue-50/70 via-sky-50/40 to-emerald-50/50 border border-blue-200/80 space-y-3">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+              <div className="p-6 rounded-2xl bg-gradient-to-br from-blue-50/70 via-sky-50/40 to-emerald-50/50 border border-blue-200/80 shadow-[0_2px_14px_-4px_rgba(37,99,235,0.08)] space-y-3.5">
                 <div className="text-xs font-bold text-slate-800 leading-relaxed">
-                  Send payment to <strong className="text-blue-700 font-black">WaveLink Official Admin:</strong>{' '}
+                  Send payment to <strong className="text-[#2563eb] font-black">WaveLink Official Admin:</strong>{' '}
                   <span className="font-mono font-black text-emerald-600 tabular-nums">0787473334</span>{' '}
                   <span className="text-slate-600">(Airtel Money / M-Pesa / Tigo Pesa).</span>
                 </div>
-                <div className="flex items-center justify-between gap-3 p-3 rounded-xl bg-white border border-emerald-200/80">
+                <div className="flex items-center justify-between gap-3 p-3.5 rounded-2xl bg-white border border-emerald-200/80 shadow-2xs">
                   <div>
                     <div className="text-[10px] uppercase font-extrabold text-emerald-700 tracking-wider">
                       WaveLink Official Admin
@@ -626,7 +627,7 @@ export const MonetizationHub: React.FC<MonetizationHubProps> = ({
                   <button
                     type="button"
                     onClick={handleCopyAdminNumber}
-                    className="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-extrabold flex items-center gap-1.5 transition active:scale-95 shrink-0"
+                    className="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-extrabold flex items-center gap-1.5 transition active:scale-95 shrink-0 shadow-xs"
                   >
                     {copiedAdminPhone ? <Check size={14} /> : <Copy size={14} />}
                     <span>{copiedAdminPhone ? 'Copied!' : 'Copy Number'}</span>
@@ -637,14 +638,14 @@ export const MonetizationHub: React.FC<MonetizationHubProps> = ({
                 </div>
               </div>
 
-              <div className="p-5 rounded-2xl bg-slate-50 border border-slate-200/90 flex flex-col justify-between space-y-4">
+              <div className="p-6 rounded-2xl bg-[#F8FAFC] border border-slate-200/90 shadow-[0_2px_14px_-4px_rgba(15,23,42,0.05)] flex flex-col justify-between space-y-4">
                 <div className="space-y-3">
                   <div className="flex items-center gap-2 text-xs font-bold text-slate-900">
                     <ShieldCheck size={16} className="text-emerald-500" />
-                    <span>Direct Admin Verification &amp; Promo Code</span>
+                    <span>Direct Admin Verification &amp; Coupon Activation</span>
                   </div>
                   <p className="text-xs text-slate-500 leading-relaxed">
-                    Have a promo code? Enter <strong className="text-emerald-600 font-mono">HARVEST2026</strong> below for an instant 1-year Harvest Pass, or open the payment modal to submit your SMS Transaction ID.
+                    Enter your official coupon code below to activate your pass.
                   </p>
 
                   <form onSubmit={handleRedeemHubPromo} className="flex items-center gap-2">
@@ -652,13 +653,13 @@ export const MonetizationHub: React.FC<MonetizationHubProps> = ({
                       type="text"
                       value={hubPromoCode}
                       onChange={(e) => setHubPromoCode(e.target.value)}
-                      placeholder="Enter code (HARVEST2026)"
-                      className="flex-1 px-3 py-2 rounded-xl bg-white border border-slate-200 text-slate-900 placeholder-slate-400 font-mono text-xs uppercase focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
+                      placeholder="Enter official coupon code"
+                      className="flex-1 px-3.5 py-2.5 rounded-xl bg-white border border-slate-200 text-slate-900 placeholder-slate-400 font-mono text-xs uppercase focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
                     />
                     <button
                       type="submit"
                       disabled={isRedeemingHubPromo || !hubPromoCode.trim()}
-                      className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-extrabold text-xs transition shrink-0"
+                      className="px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-extrabold text-xs transition shrink-0 shadow-xs"
                     >
                       {isRedeemingHubPromo ? 'Activating...' : 'Redeem'}
                     </button>
@@ -671,7 +672,7 @@ export const MonetizationHub: React.FC<MonetizationHubProps> = ({
                 <button
                   type="button"
                   onClick={() => setIsGeneralModalOpen(true)}
-                  className="w-full py-3 px-5 rounded-2xl bg-gradient-to-r from-blue-600 to-emerald-600 hover:from-blue-500 hover:to-emerald-500 text-white font-extrabold text-xs shadow-md transition active:scale-95 flex items-center justify-center gap-2"
+                  className="w-full py-3 px-5 rounded-2xl bg-gradient-to-r from-[#2563eb] to-[#10B981] hover:opacity-95 text-white font-extrabold text-xs shadow-sm transition active:scale-95 flex items-center justify-center gap-2"
                 >
                   <Crown size={15} />
                   <span>Open Payment &amp; Verification Modal</span>

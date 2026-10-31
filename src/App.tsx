@@ -28,10 +28,11 @@ import { MonetizationHub } from './components/MonetizationHub';
 import { CallingModal } from './components/CallingModal';
 import { AdsterraManager } from './components/AdsterraManager';
 import { AdsterraAdBanner } from './components/AdsterraAdBanner';
-import { Waves } from 'lucide-react';
+import { WelinkAssistantDrawer } from './components/WelinkAssistantDrawer';
+import { Waves, Sparkles, Crown } from 'lucide-react';
 
 function MainApp() {
-  const { currentUser, userProfile, isLoading, isAdmin, signOut } = useAuth();
+  const { currentUser, userProfile, isLoading, isProEffective } = useAuth();
 
   // Remember user's session tab from where they left off
   const [activeTab, setActiveTabState] = useState<ActiveTab>(() => {
@@ -48,6 +49,7 @@ function MainApp() {
   const [activeCall, setActiveCall] = useState<{ type: 'video' | 'voice'; recipient?: CallRecipient } | null>(null);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [selectedHashtag, setSelectedHashtag] = useState<string | null>(null);
+  const [isWelinkOpen, setIsWelinkOpen] = useState(false);
 
   const setActiveTab = (tab: ActiveTab) => {
     setActiveTabState(tab);
@@ -91,17 +93,18 @@ function MainApp() {
   }
 
   return (
-    <div className="min-h-screen flex flex-row bg-[#F8FAFC] dark:bg-[#0B0F19] text-[#0F172A] dark:text-gray-100 transition-colors">
+    <div className="min-h-screen flex flex-row bg-[#F8FAFC] text-[#0F172A] antialiased">
       {/* Modern Desktop Sidebar & Mobile Drawer Navigation */}
       <Sidebar
         activeTab={activeTab}
         setActiveTab={setActiveTab}
         isOpenMobile={isMobileMenuOpen}
         onCloseMobile={() => setIsMobileMenuOpen(false)}
+        onOpenWelink={() => setIsWelinkOpen(true)}
       />
 
       {/* Main Content Area */}
-      <div className="flex-1 flex flex-col min-w-0 min-h-screen">
+      <div className="flex-1 flex flex-col min-w-0 min-h-screen bg-[#F8FAFC]">
         {/* Top in-app warning notice if issued by admin */}
         <WarningBanner />
 
@@ -160,6 +163,35 @@ function MainApp() {
       <MobileBottomNav
         activeTab={activeTab}
         setActiveTab={setActiveTab}
+      />
+
+      {/* Floating WELINK AI Assistant Button */}
+      <button
+        type="button"
+        onClick={() => setIsWelinkOpen(true)}
+        className="fixed bottom-20 md:bottom-6 right-4 sm:right-6 z-40 group flex items-center gap-2.5 pl-3.5 pr-4 py-3 rounded-full bg-gradient-to-r from-[#2563eb] via-[#3B82F6] to-[#10B981] text-white shadow-xl shadow-blue-600/30 hover:shadow-blue-600/45 hover:scale-105 active:scale-95 transition-all duration-200 border border-white/30"
+        title="Open WELINK AI Community Guide"
+      >
+        <div className="relative flex items-center justify-center">
+          <Waves size={20} className="text-white" />
+          <Sparkles size={11} className="text-amber-200 absolute -top-1.5 -right-1.5 animate-pulse" />
+        </div>
+        <div className="flex flex-col items-start leading-none">
+          <span className="text-xs font-extrabold tracking-tight flex items-center gap-1">
+            <span>WELINK</span>
+            <Crown size={11} className="text-amber-200" />
+          </span>
+          <span className="text-[9px] font-bold text-blue-50">
+            {isProEffective ? 'Pro AI Guide' : 'Unlock Pro AI'}
+          </span>
+        </div>
+      </button>
+
+      {/* WELINK AI Assistant Drawer */}
+      <WelinkAssistantDrawer
+        isOpen={isWelinkOpen}
+        onClose={() => setIsWelinkOpen(false)}
+        onOpenUpgrade={() => setActiveTab('monetization')}
       />
 
       {/* WebRTC Video & Voice Calling Overlay Modal (Only for person you chat with) */}

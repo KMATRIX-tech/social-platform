@@ -44,6 +44,7 @@ interface AuthContextType {
   toggleSubAdmin: (targetUserId: string, makeSubAdmin: boolean) => Promise<void>;
   toggleVerifyUser: (targetUserId: string, verify: boolean) => Promise<void>;
   activateHarvestPass: () => Promise<void>;
+  verifyAndRedeemCoupon: (rawCode: string) => Promise<boolean>;
   showGlobalToast: (message: string) => void;
 }
 
@@ -574,6 +575,42 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  // Verify official coupon code (supports built-in official code or any valid code stored in Firestore)
+  const verifyAndRedeemCoupon = async (rawCode: string): Promise<boolean> => {
+    const clean = rawCode.trim().toUpperCase();
+    if (!clean) return false;
+
+    if (clean === 'HARVEST2026') {
+      await activateHarvestPass();
+      return true;
+    }
+
+    try {
+      const checkFirestoreCoupon = async (): Promise<boolean> => {
+        const couponSnap = await getDoc(doc(db, 'coupons', clean));
+        if (couponSnap.exists() && couponSnap.data()?.active !== false) {
+          return true;
+        }
+        const promoSnap = await getDoc(doc(db, 'promo_codes', clean));
+        if (promoSnap.exists() && promoSnap.data()?.active !== false) {
+          return true;
+        }
+        return false;
+      };
+
+      const timeoutPromise = new Promise<boolean>((resolve) => setTimeout(() => resolve(false), 2000));
+      const isValidInDb = await Promise.race([checkFirestoreCoupon(), timeoutPromise]);
+      if (isValidInDb) {
+        await activateHarvestPass();
+        return true;
+      }
+    } catch {
+      // Fallback gracefully if offline
+    }
+
+    return false;
+  };
+
   return (
     <AuthContext.Provider
       value={{
@@ -599,6 +636,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         toggleSubAdmin,
         toggleVerifyUser,
         activateHarvestPass,
+        verifyAndRedeemCoupon,
         showGlobalToast
       }}
     >

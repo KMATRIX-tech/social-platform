@@ -39,6 +39,7 @@ import {
   Settings,
   Camera,
   Check,
+  CheckCheck,
   Crown,
   Info,
   MoreVertical,
@@ -84,6 +85,19 @@ const PRESET_LOGOS = [
   { label: 'City Lights', url: 'https://images.unsplash.com/photo-1477959858617-67f30bc75b82?w=200&auto=format&fit=crop&q=80' }
 ];
 
+const formatLastSeenTimestamp = (iso?: string): string => {
+  if (!iso) return '';
+  const date = new Date(iso);
+  if (isNaN(date.getTime())) return '';
+  const diffSec = Math.floor((Date.now() - date.getTime()) / 1000);
+  if (diffSec < 45) return 'Just now';
+  if (diffSec < 3600) return `${Math.floor(diffSec / 60)}m ago`;
+  if (diffSec < 86400) {
+    return `Today at ${date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+  }
+  return date.toLocaleDateString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+};
+
 export const ChatChannelsView: React.FC<ChatChannelsViewProps> = ({ onOpenCall, initialTargetUserId }) => {
   const { currentUser, userProfile, isAdmin, isSuperAdmin, isSubAdmin, canTalkToAdmin, isProEffective } = useAuth();
 
@@ -91,6 +105,7 @@ export const ChatChannelsView: React.FC<ChatChannelsViewProps> = ({ onOpenCall, 
   const [activeChannel, setActiveChannel] = useState<string>('');
   const [showMobileChannels, setShowMobileChannels] = useState(false);
   const [messages, setMessages] = useState<ChannelMessage[]>([]);
+  const [channelLastSeen, setChannelLastSeen] = useState<Record<string, string>>({});
   const [inputText, setInputText] = useState('');
   const [replyingTo, setReplyingTo] = useState<ChannelMessage | null>(null);
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
@@ -216,6 +231,32 @@ export const ChatChannelsView: React.FC<ChatChannelsViewProps> = ({ onOpenCall, 
     ? activeGroup.memberIds?.includes(currentUser.uid)
     : false;
 
+  // 2b. Real-time listener for channel lastSeen metadata (for Direct Messages)
+  useEffect(() => {
+    if (!activeChannel || !isDirectMessage) {
+      setChannelLastSeen({});
+      return;
+    }
+
+    const channelDocRef = doc(db, 'channels', activeChannel);
+    const unsub = onSnapshot(
+      channelDocRef,
+      (snap) => {
+        if (snap.exists()) {
+          const data = snap.data();
+          setChannelLastSeen((data?.lastSeen as Record<string, string>) || {});
+        } else {
+          setChannelLastSeen({});
+        }
+      },
+      (err) => {
+        console.warn('Channel lastSeen listener notice:', err);
+      }
+    );
+
+    return () => unsub();
+  }, [activeChannel, isDirectMessage]);
+
   // 3. Real-time message listener for active channel (Group vs DM)
   useEffect(() => {
     if (!activeChannel) {
@@ -246,6 +287,128 @@ export const ChatChannelsView: React.FC<ChatChannelsViewProps> = ({ onOpenCall, 
 
     return () => unsub();
   }, [activeChannel, isDirectMessage, currentUser?.uid]);
+
+  // 4. Track & broadcast lastSeen timestamp and per-message readBy receipts in Firestore
+  useEffect(() => {
+    if (!activeChannel || !currentUser?.uid) return;
+
+    const markConversationAsSeen = async () => {
+      if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
+      const nowIso = new Date().toISOString();
+
+      try {
+        // Update channel or group lastSeen map for current user
+        if (isDirectMessage) {
+          await setDoc(
+            doc(db, 'channels', activeChannel),
+            {
+              id: activeChannel,
+              lastSeen: { [currentUser.uid]: nowIso },
+              updatedAt: nowIso
+            },
+            { merge: true }
+          );
+        } else {
+          await setDoc(
+            doc(db, 'groups', activeChannel),
+            {
+              lastSeen: { [currentUser.uid]: nowIso }
+            },
+            { merge: true }
+          );
+        }
+
+        // Update current user's global lastSeen timestamp
+        await setDoc(
+          doc(db, 'users', currentUser.uid),
+          {
+            lastSeen: nowIso,
+            lastSeenAt: nowIso,
+            isOnline: true
+          },
+          { merge: true }
+        );
+
+        // Also stamp unread incoming messages with currentUser.uid in readBy
+        const unreadIncoming = messages.filter(
+          (m) =>
+            m.senderId !== currentUser.uid &&
+            !m.isDeleted &&
+            !(m.readBy || []).includes(currentUser.uid)
+        );
+
+        for (const msg of unreadIncoming) {
+          const msgRef = isDirectMessage
+            ? doc(db, 'channels', activeChannel, 'messages', msg.id)
+            : doc(db, 'groups', activeChannel, 'messages', msg.id);
+          updateDoc(msgRef, {
+            readBy: arrayUnion(currentUser.uid),
+            lastSeenAt: nowIso
+          }).catch(() => {});
+        }
+      } catch (err) {
+        console.warn('Read receipt sync notice:', err);
+      }
+    };
+
+    markConversationAsSeen();
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        markConversationAsSeen();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [activeChannel, isDirectMessage, currentUser?.uid, messages.length]);
+
+  // Helper to evaluate whether a message sent by currentUser has been viewed by the recipient(s)
+  const getReadReceiptInfo = (msg: ChannelMessage): { isSeen: boolean; seenAt?: string; seenCount: number } => {
+    const readByOtherIds = (msg.readBy || []).filter((uid) => uid !== msg.senderId);
+    const msgTime = new Date(msg.createdAt).getTime();
+
+    if (isDirectMessage) {
+      // Extract the recipient UID from directRecipient or dm_<uid1>_<uid2>
+      const parts = activeChannel.replace(/^dm_/, '').split('_');
+      const recipientId = directRecipient?.id || parts.find((id) => id !== msg.senderId) || '';
+      const recipientLastSeen = recipientId ? channelLastSeen[recipientId] : undefined;
+      const seenByTimestamp =
+        recipientLastSeen && !isNaN(new Date(recipientLastSeen).getTime())
+          ? new Date(recipientLastSeen).getTime() >= msgTime
+          : false;
+      const isSeen = readByOtherIds.includes(recipientId) || readByOtherIds.length > 0 || seenByTimestamp;
+      return {
+        isSeen,
+        seenAt: recipientLastSeen || msg.lastSeenAt,
+        seenCount: isSeen ? 1 : 0
+      };
+    }
+
+    // Group chat: check how many group members have lastSeen >= msg.createdAt or are in readBy
+    const groupLastSeen = activeGroup?.lastSeen || {};
+    const otherMemberIds = (activeGroup?.memberIds || []).filter((uid) => uid !== msg.senderId);
+    const seenMemberIds = new Set<string>(readByOtherIds);
+    let latestSeenIso: string | undefined = msg.lastSeenAt;
+
+    otherMemberIds.forEach((memberId) => {
+      const memberSeenIso = groupLastSeen[memberId];
+      if (memberSeenIso && new Date(memberSeenIso).getTime() >= msgTime) {
+        seenMemberIds.add(memberId);
+        if (!latestSeenIso || new Date(memberSeenIso).getTime() > new Date(latestSeenIso).getTime()) {
+          latestSeenIso = memberSeenIso;
+        }
+      }
+    });
+
+    return {
+      isSeen: seenMemberIds.size > 0,
+      seenAt: latestSeenIso,
+      seenCount: seenMemberIds.size
+    };
+  };
 
   // Handle image or video file upload in chat with client compression
   const handleChatFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -285,6 +448,7 @@ export const ChatChannelsView: React.FC<ChatChannelsViewProps> = ({ onOpenCall, 
 
     try {
       const msgId = `msg_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
+      const nowIso = new Date().toISOString();
       const data: Record<string, any> = {
         id: msgId,
         channelId: activeChannel,
@@ -300,7 +464,8 @@ export const ChatChannelsView: React.FC<ChatChannelsViewProps> = ({ onOpenCall, 
         mediaType: chatMediaType,
         isEdited: false,
         isDeleted: false,
-        createdAt: new Date().toISOString()
+        readBy: [currentUser.uid],
+        createdAt: nowIso
       };
 
       if (chatMediaUrl) {
@@ -324,6 +489,28 @@ export const ChatChannelsView: React.FC<ChatChannelsViewProps> = ({ onOpenCall, 
         : doc(db, 'groups', activeChannel, 'messages', msgId);
 
       await setDoc(docRef, cleanFirestoreData(data));
+
+      // Update sender's lastSeen timestamp on the conversation document
+      if (isDirectMessage) {
+        setDoc(
+          doc(db, 'channels', activeChannel),
+          {
+            id: activeChannel,
+            lastSeen: { [currentUser.uid]: nowIso },
+            updatedAt: nowIso
+          },
+          { merge: true }
+        ).catch(() => {});
+      } else {
+        setDoc(
+          doc(db, 'groups', activeChannel),
+          {
+            lastSeen: { [currentUser.uid]: nowIso },
+            updatedAt: nowIso
+          },
+          { merge: true }
+        ).catch(() => {});
+      }
 
       const messagePreview = (inputText.trim() || (customGifUrl ? '[GIF]' : '[Media]')).substring(0, 100);
       const senderDisplayName = userProfile?.displayName || currentUser.displayName || 'Someone';
@@ -936,8 +1123,16 @@ export const ChatChannelsView: React.FC<ChatChannelsViewProps> = ({ onOpenCall, 
                         size="md"
                       />
                     </div>
-                    <p className="text-[11px] text-gray-400 truncate mt-0.5">
-                      {directRecipient.username} • Direct Message
+                    <p className="text-[11px] text-gray-400 truncate mt-0.5 flex items-center gap-1.5">
+                      <span>{directRecipient.username}</span>
+                      <span>•</span>
+                      {channelLastSeen[directRecipient.id] || directRecipient.lastSeen || directRecipient.lastSeenAt ? (
+                        <span className="text-emerald-600 dark:text-emerald-400 font-medium">
+                          Last seen {formatLastSeenTimestamp(channelLastSeen[directRecipient.id] || directRecipient.lastSeen || directRecipient.lastSeenAt)}
+                        </span>
+                      ) : (
+                        <span>Direct Message</span>
+                      )}
                     </p>
                   </div>
                 </div>
@@ -1043,6 +1238,7 @@ export const ChatChannelsView: React.FC<ChatChannelsViewProps> = ({ onOpenCall, 
               messages.map((msg) => {
                 const isOwn = msg.senderId === currentUser?.uid;
                 const isEditing = editingMessageId === msg.id;
+                const receipt = isOwn && !msg.isDeleted ? getReadReceiptInfo(msg) : null;
 
                 return (
                   <div
@@ -1081,6 +1277,26 @@ export const ChatChannelsView: React.FC<ChatChannelsViewProps> = ({ onOpenCall, 
                           })}
                         </span>
                         {msg.isEdited && <span className="italic text-gray-400">(edited)</span>}
+                        {isOwn && receipt && (
+                          <span
+                            className={`inline-flex items-center gap-0.5 font-semibold transition-colors ${
+                              receipt.isSeen
+                                ? 'text-sky-500 dark:text-sky-400'
+                                : 'text-gray-400 dark:text-gray-500'
+                            }`}
+                            title={
+                              receipt.isSeen
+                                ? `Viewed${receipt.seenAt ? ` • ${formatLastSeenTimestamp(receipt.seenAt)}` : ''}`
+                                : 'Sent • Waiting for recipient to view'
+                            }
+                          >
+                            {receipt.isSeen ? (
+                              <CheckCheck size={14} className="text-sky-500 dark:text-sky-400 stroke-[2.5]" />
+                            ) : (
+                              <Check size={13} className="text-gray-400" />
+                            )}
+                          </span>
+                        )}
                       </div>
 
                       {/* Reply Reference if replying to another message */}
@@ -1165,6 +1381,36 @@ export const ChatChannelsView: React.FC<ChatChannelsViewProps> = ({ onOpenCall, 
                             )}
 
                             {msg.text && <p className="whitespace-pre-wrap">{msg.text}</p>}
+
+                            {/* Read Receipt Footer inside own message bubble */}
+                            {isOwn && !msg.isDeleted && receipt && (
+                              <div
+                                className="mt-1.5 pt-1 border-t border-white/15 flex items-center justify-end gap-1 text-[10px] select-none"
+                                title={
+                                  receipt.isSeen
+                                    ? `Seen${receipt.seenAt ? ` (${formatLastSeenTimestamp(receipt.seenAt)})` : ''}`
+                                    : 'Sent'
+                                }
+                              >
+                                {receipt.isSeen ? (
+                                  <>
+                                    <CheckCheck size={13} className="text-sky-200 stroke-[2.5] shrink-0" />
+                                    <span className="text-sky-100 font-semibold">
+                                      {isDirectMessage
+                                        ? 'Seen'
+                                        : receipt.seenCount > 1
+                                        ? `Seen by ${receipt.seenCount}`
+                                        : 'Seen'}
+                                    </span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <Check size={12} className="text-white/75 shrink-0" />
+                                    <span className="text-white/75">Sent</span>
+                                  </>
+                                )}
+                              </div>
+                            )}
                           </>
                         )}
                       </div>

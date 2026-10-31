@@ -60,7 +60,9 @@ import {
   Tag,
   Coins,
   PlusCircle,
-  Hash
+  Hash,
+  CalendarDays,
+  CheckCircle2
 } from 'lucide-react';
 import { MobileMoneyPaymentModal } from './MobileMoneyPaymentModal';
 import { CreatorTipModal } from './CreatorTipModal';
@@ -69,6 +71,7 @@ import { RightSidebar } from './RightSidebar';
 import { PostSkeleton } from './PostSkeleton';
 import { LegalFooter } from './LegalModals';
 import { sendNotification } from '../services/notificationService';
+import { compressImage, generateVideoThumbnail, saveVideoPost } from '../utils/mediaStorage';
 
 const SPONSORED_ADS: Post[] = [
   {
@@ -179,6 +182,8 @@ export const FeedView: React.FC<FeedViewProps> = ({
   const [inlineMediaPreview, setInlineMediaPreview] = useState<string | null>(null);
   const [inlineMediaType, setInlineMediaType] = useState<'image' | 'video'>('image');
   const [isSubmittingPost, setIsSubmittingPost] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<number>(0);
+  const [postNotice, setPostNotice] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Monetization modals
@@ -480,45 +485,116 @@ export const FeedView: React.FC<FeedViewProps> = ({
     }
   };
 
-  // Handle media selection for inline post creator
-  const handleMediaSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+  // Handle media selection for inline post creator (compresses images & prepares videos for Firestore)
+  const handleMediaSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
     const isVideo = file.type.startsWith('video/');
     const isImage = file.type.startsWith('image/');
     if (!isVideo && !isImage) {
-      console.warn('Please select an image or video file.');
+      setPostNotice({ type: 'error', text: 'Please select a valid photo or video file.' });
       return;
     }
 
+    setPostNotice(null);
     setInlineMediaFile(file);
     setInlineMediaType(isVideo ? 'video' : 'image');
 
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      setInlineMediaPreview(event.target?.result as string);
-    };
-    reader.readAsDataURL(file);
+    if (isImage) {
+      try {
+        const compressedDataUrl = await compressImage(file, 1280, 1280, 0.82);
+        setInlineMediaPreview(compressedDataUrl);
+      } catch (err) {
+        console.error('Error compressing image:', err);
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          setInlineMediaPreview(event.target?.result as string);
+        };
+        reader.readAsDataURL(file);
+      }
+    } else {
+      // Video preview via object URL while keeping the File ready for chunked Firestore upload
+      const videoObjectUrl = URL.createObjectURL(file);
+      setInlineMediaPreview(videoObjectUrl);
+    }
+
+    e.target.value = '';
   };
 
-  // Submit inline post
+  // Submit inline post with Firestore picture & chunked video storage
   const handleCreatePost = async () => {
-    if (!currentUser || (!inlineContent.trim() && !inlineMediaPreview)) return;
+    if (!currentUser || (!inlineContent.trim() && !inlineMediaPreview && !inlineMediaFile)) return;
     setIsSubmittingPost(true);
+    setUploadProgress(5);
+    setPostNotice(null);
 
     try {
+      const postId = `post_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
       const emailPrefix = currentUser.email ? currentUser.email.split('@')[0] : 'waver';
+
+      let finalImageUrl: string | undefined = undefined;
+      let finalVideoUrl: string | undefined = undefined;
+      let finalHasVideoChunks: boolean | undefined = undefined;
+      let finalThumbnailUrl: string | undefined = undefined;
+      let finalVideoFileName: string | undefined = undefined;
+      let finalMediaType: 'image' | 'video' | undefined = undefined;
+
+      if (inlineMediaType === 'image' && (inlineMediaPreview || inlineMediaFile)) {
+        setUploadProgress(40);
+        if (inlineMediaFile && (!inlineMediaPreview || inlineMediaPreview.length > 600 * 1024)) {
+          finalImageUrl = await compressImage(inlineMediaFile, 1280, 1280, 0.8);
+        } else {
+          finalImageUrl = inlineMediaPreview || undefined;
+        }
+        finalMediaType = 'image';
+        setUploadProgress(90);
+      } else if (inlineMediaType === 'video' && inlineMediaFile) {
+        setUploadProgress(10);
+        // 1. Generate lightweight video poster thumbnail (<30KB) for Firestore document
+        const thumb = await generateVideoThumbnail(inlineMediaFile);
+        finalThumbnailUrl = thumb || undefined;
+        finalImageUrl = thumb || undefined;
+
+        // 2. Read video file as base64 dataURL and store in Firestore via saveVideoPost (chunked in posts/{postId}/chunks)
+        const videoDataUrl = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = (ev) => resolve((ev.target?.result as string) || '');
+          reader.onerror = (err) => reject(err);
+          reader.readAsDataURL(inlineMediaFile);
+        });
+
+        const savedVideo = await saveVideoPost(
+          postId,
+          inlineMediaFile,
+          videoDataUrl,
+          'posts',
+          (pct) => setUploadProgress(pct)
+        );
+
+        finalVideoUrl = savedVideo.videoUrl;
+        finalHasVideoChunks = savedVideo.hasVideoChunks;
+        finalVideoFileName = inlineMediaFile.name;
+        finalMediaType = 'video';
+      }
+
       const newPost: Partial<Post> = {
+        id: postId,
         authorId: currentUser.uid,
         authorEmail: currentUser.email || '',
         authorName: userProfile?.displayName || currentUser.displayName || 'Waver',
         authorUsername: userProfile?.username || `@${emailPrefix}`,
-        authorPhotoURL: userProfile?.photoURL || currentUser.photoURL || `https://api.dicebear.com/7.x/shapes/svg?seed=${currentUser.uid}`,
+        authorPhotoURL:
+          userProfile?.photoURL ||
+          currentUser.photoURL ||
+          `https://api.dicebear.com/7.x/shapes/svg?seed=${currentUser.uid}`,
         content: inlineContent.trim(),
-        imageUrl: inlineMediaType === 'image' && inlineMediaPreview ? inlineMediaPreview : undefined,
-        videoUrl: inlineMediaType === 'video' && inlineMediaPreview ? inlineMediaPreview : undefined,
-        mediaType: inlineMediaType === 'video' ? 'video' : inlineMediaType === 'image' && inlineMediaPreview ? 'image' : undefined,
+        imageUrl: finalImageUrl,
+        thumbnailUrl: finalThumbnailUrl,
+        videoUrl: finalVideoUrl,
+        hasVideoChunks: finalHasVideoChunks,
+        videoFileName: finalVideoFileName,
+        mediaType: finalMediaType,
         likes: [],
         likesCount: 0,
         reactions: { like: [], heart: [], fire: [] },
@@ -527,16 +603,32 @@ export const FeedView: React.FC<FeedViewProps> = ({
         createdAt: new Date().toISOString()
       };
 
-      await addDoc(collection(db, 'posts'), cleanFirestoreData(newPost));
+      await setDoc(doc(db, 'posts', postId), cleanFirestoreData(newPost));
+      setUploadProgress(100);
 
       // Reset form
       setInlineContent('');
       setInlineMediaFile(null);
       setInlineMediaPreview(null);
+      setPostNotice({
+        type: 'success',
+        text:
+          finalMediaType === 'video'
+            ? 'Video reel uploaded and saved to Firestore!'
+            : finalMediaType === 'image'
+            ? 'Photo wave published to Firestore!'
+            : 'Wave published to the community feed!'
+      });
+      setTimeout(() => setPostNotice(null), 4000);
     } catch (err) {
       console.error('Post creation error:', err);
+      setPostNotice({
+        type: 'error',
+        text: 'Could not publish wave. Please try a smaller clip or check your connection.'
+      });
     } finally {
       setIsSubmittingPost(false);
+      setUploadProgress(0);
     }
   };
 
@@ -552,7 +644,7 @@ export const FeedView: React.FC<FeedViewProps> = ({
     const fireBurst = floatingBursts[`${post.id}_fire`];
 
     return (
-      <div className="inline-flex items-center gap-1.5 bg-[#F8FAFC] dark:bg-gray-800/70 p-1 rounded-2xl border border-slate-200/80 dark:border-gray-700/80">
+      <div className="inline-flex items-center gap-1.5 bg-[#F8FAFC] p-1 rounded-2xl border border-slate-200/80">
         {/* LIKE (ThumbsUp) */}
         <button
           type="button"
@@ -561,8 +653,8 @@ export const FeedView: React.FC<FeedViewProps> = ({
           aria-label={`Like post (${counts.like})`}
           className={`relative flex items-center gap-1.5 py-1.5 px-2.5 sm:px-3 rounded-xl transition-all duration-200 select-none active:scale-90 ${
             active.like
-              ? 'bg-[#3B82F6]/12 text-[#3B82F6] dark:bg-blue-950/60 dark:text-blue-400 font-extrabold ring-1 ring-[#3B82F6]/30 shadow-2xs'
-              : 'text-slate-600 dark:text-gray-400 hover:bg-white dark:hover:bg-gray-800 hover:text-[#3B82F6]'
+              ? 'bg-[#3B82F6]/12 text-[#3B82F6] font-extrabold ring-1 ring-[#3B82F6]/30 shadow-2xs'
+              : 'text-slate-600 hover:bg-white hover:text-[#3B82F6]'
           }`}
         >
           {likeBurst && (
@@ -576,7 +668,7 @@ export const FeedView: React.FC<FeedViewProps> = ({
           <ThumbsUp
             size={15}
             className={`transition-transform ${likeAnim ? 'animate-reaction-like' : ''} ${
-              active.like ? 'fill-[#3B82F6] text-[#3B82F6] dark:fill-blue-400 dark:text-blue-400' : ''
+              active.like ? 'fill-[#3B82F6] text-[#3B82F6]' : ''
             }`}
           />
           <span className="font-mono tabular-numbers text-xs">{counts.like}</span>
@@ -590,8 +682,8 @@ export const FeedView: React.FC<FeedViewProps> = ({
           aria-label={`Love post (${counts.heart})`}
           className={`relative flex items-center gap-1.5 py-1.5 px-2.5 sm:px-3 rounded-xl transition-all duration-200 select-none active:scale-90 ${
             active.heart
-              ? 'bg-rose-500/12 text-rose-600 dark:bg-rose-950/60 dark:text-rose-400 font-extrabold ring-1 ring-rose-500/30 shadow-2xs'
-              : 'text-slate-600 dark:text-gray-400 hover:bg-white dark:hover:bg-gray-800 hover:text-rose-600'
+              ? 'bg-rose-500/12 text-rose-600 font-extrabold ring-1 ring-rose-500/30 shadow-2xs'
+              : 'text-slate-600 hover:bg-white hover:text-rose-600'
           }`}
         >
           {heartBurst && (
@@ -605,7 +697,7 @@ export const FeedView: React.FC<FeedViewProps> = ({
           <Heart
             size={15}
             className={`transition-transform ${heartAnim ? 'animate-reaction-heart' : ''} ${
-              active.heart ? 'fill-rose-600 text-rose-600 dark:fill-rose-400 dark:text-rose-400' : ''
+              active.heart ? 'fill-rose-600 text-rose-600' : ''
             }`}
           />
           <span className="font-mono tabular-numbers text-xs">{counts.heart}</span>
@@ -619,8 +711,8 @@ export const FeedView: React.FC<FeedViewProps> = ({
           aria-label={`Fire post (${counts.fire})`}
           className={`relative flex items-center gap-1.5 py-1.5 px-2.5 sm:px-3 rounded-xl transition-all duration-200 select-none active:scale-90 ${
             active.fire
-              ? 'bg-orange-500/12 text-orange-600 dark:bg-orange-950/60 dark:text-orange-400 font-extrabold ring-1 ring-orange-500/30 shadow-2xs'
-              : 'text-slate-600 dark:text-gray-400 hover:bg-white dark:hover:bg-gray-800 hover:text-orange-500'
+              ? 'bg-orange-500/12 text-orange-600 font-extrabold ring-1 ring-orange-500/30 shadow-2xs'
+              : 'text-slate-600 hover:bg-white hover:text-orange-500'
           }`}
         >
           {fireBurst && (
@@ -634,7 +726,7 @@ export const FeedView: React.FC<FeedViewProps> = ({
           <Flame
             size={15}
             className={`transition-transform ${fireAnim ? 'animate-reaction-fire' : ''} ${
-              active.fire ? 'fill-orange-500 text-orange-600 dark:fill-orange-400 dark:text-orange-400' : ''
+              active.fire ? 'fill-orange-500 text-orange-600' : ''
             }`}
           />
           <span className="font-mono tabular-numbers text-xs">{counts.fire}</span>
@@ -758,35 +850,31 @@ export const FeedView: React.FC<FeedViewProps> = ({
             </div>
           )}
 
-          {/* Warm, Bright & Inviting Welcome Hero Banner */}
-          <div className="relative overflow-hidden rounded-3xl p-6 sm:p-7 bg-[#FFFFFF] border border-slate-200/80 shadow-[0_6px_28px_-4px_rgba(15,23,42,0.06)] text-[#0F172A]">
-            {/* Ambient soft pastel glow circles */}
-            <div className="absolute -top-12 -right-12 w-52 h-52 rounded-full bg-[#3B82F6]/10 blur-2xl pointer-events-none" />
-            <div className="absolute -bottom-10 left-1/3 w-44 h-44 rounded-full bg-[#10B981]/10 blur-2xl pointer-events-none" />
-
+          {/* Crisp Pure White Welcome Hero Card */}
+          <div className="relative overflow-hidden rounded-3xl p-6 sm:p-7 bg-[#FFFFFF] border border-slate-200/90 shadow-[0_2px_16px_-4px_rgba(15,23,42,0.05)] text-[#0F172A]">
             <div className="relative z-10 flex items-center justify-between flex-wrap gap-4">
               <div>
-                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-50 text-[#3B82F6] text-xs font-extrabold uppercase tracking-wider mb-2.5 border border-blue-200/70">
-                  <Sparkles size={13} className="text-[#10B981]" />
-                  <span>Welcome to the Community</span>
+                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-50 text-[#3B82F6] text-[11px] font-extrabold uppercase tracking-wider mb-2.5 border border-blue-200/80">
+                  <Sparkles size={12} className="text-[#10B981]" />
+                  <span>WaveLink Community Feed</span>
                 </div>
-                <h2 className="text-xl sm:text-2xl lg:text-3xl font-extrabold tracking-tight text-[#0F172A]">
-                  Hello, {userProfile?.displayName?.split(' ')[0] || 'Friend'}! 🌊
+                <h2 className="text-xl sm:text-2xl lg:text-[26px] font-extrabold tracking-tight text-[#0F172A]">
+                  Welcome back, {userProfile?.displayName?.split(' ')[0] || 'Friend'}!
                 </h2>
-                <p className="text-slate-600 text-xs sm:text-sm mt-1.5 max-w-xl font-medium leading-relaxed">
-                  Connect with friends, share your brightest moments, upload photos &amp; reels, and discover creators across East Africa.
+                <p className="text-slate-600 text-xs sm:text-sm mt-1 max-w-xl font-medium leading-relaxed">
+                  Share high-resolution photos, upload video reels directly to Firestore, and post official events on the community notice board.
                 </p>
               </div>
 
-              <div className="flex items-center gap-2.5">
+              <div className="flex items-center gap-2 flex-wrap">
                 {onNavigateTab && (
                   <>
                     <button
-                      onClick={() => onNavigateTab('monetization')}
-                      className="px-4 py-2.5 rounded-2xl bg-[#10B981] hover:bg-emerald-600 text-white font-bold text-xs flex items-center gap-1.5 shadow-sm shadow-emerald-500/20 active:scale-95 transition"
+                      onClick={() => onNavigateTab('announcements')}
+                      className="px-4 py-2.5 rounded-2xl bg-[#F8FAFC] hover:bg-slate-100 text-[#0F172A] border border-slate-200/90 font-bold text-xs flex items-center gap-1.5 shadow-2xs active:scale-95 transition"
                     >
-                      <Coins size={14} />
-                      <span>Monetization</span>
+                      <CalendarDays size={14} className="text-[#3B82F6]" />
+                      <span>Notice Board &amp; Events</span>
                     </button>
                     <button
                       onClick={() => onNavigateTab('videos')}
@@ -817,8 +905,8 @@ export const FeedView: React.FC<FeedViewProps> = ({
             </div>
           )}
 
-          {/* Center Main Feed: Spacious, Welcoming Post Creation Card */}
-          <div className="w-full max-w-full overflow-hidden bg-[#FFFFFF] dark:bg-[#131927] border border-slate-200/80 dark:border-gray-800 rounded-3xl p-5 sm:p-6 shadow-[0_4px_24px_-4px_rgba(15,23,42,0.06)] transition">
+          {/* Center Main Feed: Pure White Post Creation Card with Firestore Photo & Video Upload */}
+          <div className="w-full max-w-full overflow-hidden bg-[#FFFFFF] border border-slate-200/90 rounded-3xl p-5 sm:p-6 shadow-[0_2px_16px_-4px_rgba(15,23,42,0.05)] transition">
             <div className="flex items-start gap-3.5">
               <img
                 src={
@@ -833,24 +921,38 @@ export const FeedView: React.FC<FeedViewProps> = ({
                 <textarea
                   value={inlineContent}
                   onChange={(e) => setInlineContent(e.target.value)}
-                  placeholder={`What's making waves today, ${userProfile?.displayName?.split(' ')[0] || 'Friend'}?`}
+                  placeholder={`What's making waves today, ${userProfile?.displayName?.split(' ')[0] || 'Friend'}? Share a photo, video clip, or update...`}
                   rows={3}
-                  className="w-full max-w-full bg-[#F8FAFC] dark:bg-gray-800/50 rounded-2xl p-3.5 border border-slate-200/80 dark:border-gray-700 resize-none text-sm text-[#0F172A] dark:text-gray-100 placeholder-slate-400 focus:outline-none focus:bg-white focus:border-[#3B82F6] focus:ring-2 focus:ring-[#3B82F6]/15 break-words leading-relaxed transition"
+                  className="w-full max-w-full bg-[#F8FAFC] rounded-2xl p-3.5 border border-slate-200/90 resize-none text-sm text-[#0F172A] placeholder-slate-400 focus:outline-none focus:bg-white focus:border-[#3B82F6] focus:ring-2 focus:ring-[#3B82F6]/15 break-words leading-relaxed transition"
                 />
 
                 {inlineMediaPreview && (
-                  <div className="relative rounded-2xl overflow-hidden my-3 border border-slate-200 dark:border-gray-700 max-h-64 bg-slate-50">
+                  <div className="relative rounded-2xl overflow-hidden my-3 border border-slate-200 max-h-72 bg-slate-950">
                     {inlineMediaType === 'video' ? (
-                      <video src={inlineMediaPreview} controls className="w-full h-auto max-h-64 object-cover" />
+                      <video src={inlineMediaPreview} controls className="w-full h-auto max-h-72 object-contain" />
                     ) : (
-                      <img src={inlineMediaPreview} alt="Preview" className="w-full h-auto max-h-64 object-cover" />
+                      <img src={inlineMediaPreview} alt="Preview" className="w-full h-auto max-h-72 object-cover" />
                     )}
+                    <div className="absolute top-2.5 left-2.5 px-2.5 py-1 rounded-full bg-white/90 backdrop-blur-md text-[#0F172A] text-[10px] font-extrabold uppercase tracking-wider flex items-center gap-1 shadow-xs">
+                      {inlineMediaType === 'video' ? (
+                        <>
+                          <VideoIcon size={12} className="text-[#10B981]" />
+                          <span>Ready for Firestore Video Storage</span>
+                        </>
+                      ) : (
+                        <>
+                          <ImageIcon size={12} className="text-[#3B82F6]" />
+                          <span>Compressed HD Photo Ready</span>
+                        </>
+                      )}
+                    </div>
                     <button
+                      type="button"
                       onClick={() => {
                         setInlineMediaFile(null);
                         setInlineMediaPreview(null);
                       }}
-                      className="absolute top-2.5 right-2.5 p-1.5 rounded-full bg-slate-900/75 text-white hover:bg-slate-900 transition"
+                      className="absolute top-2.5 right-2.5 p-1.5 rounded-full bg-slate-900/80 text-white hover:bg-slate-900 transition"
                       title="Remove attachment"
                     >
                       <X size={14} />
@@ -858,7 +960,53 @@ export const FeedView: React.FC<FeedViewProps> = ({
                   </div>
                 )}
 
-                <div className="flex items-center justify-between pt-3.5 mt-2 flex-wrap gap-2">
+                {/* Live Firestore Upload Progress Bar */}
+                {isSubmittingPost && uploadProgress > 0 && (
+                  <div className="my-3 p-3 rounded-2xl bg-blue-50/70 border border-blue-200/80">
+                    <div className="flex items-center justify-between text-xs font-bold text-[#0F172A] mb-1.5">
+                      <span>
+                        {inlineMediaType === 'video' && inlineMediaFile
+                          ? 'Uploading video chunks to Firestore...'
+                          : 'Saving wave to Firestore...'}
+                      </span>
+                      <span className="font-mono text-[#3B82F6]">{uploadProgress}%</span>
+                    </div>
+                    <div className="w-full h-2 rounded-full bg-blue-100 overflow-hidden">
+                      <div
+                        className="h-full bg-gradient-to-r from-[#3B82F6] to-[#10B981] transition-all duration-300"
+                        style={{ width: `${uploadProgress}%` }}
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {/* Status Notice Toast */}
+                {postNotice && (
+                  <div
+                    className={`my-2.5 p-3 rounded-2xl text-xs font-bold flex items-center justify-between gap-2 border ${
+                      postNotice.type === 'success'
+                        ? 'bg-emerald-50 border-emerald-200 text-emerald-900'
+                        : 'bg-rose-50 border-rose-200 text-rose-900'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <CheckCircle2
+                        size={15}
+                        className={postNotice.type === 'success' ? 'text-[#10B981]' : 'text-rose-600'}
+                      />
+                      <span>{postNotice.text}</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setPostNotice(null)}
+                      className="text-slate-400 hover:text-slate-700"
+                    >
+                      <X size={13} />
+                    </button>
+                  </div>
+                )}
+
+                <div className="flex items-center justify-between pt-3.5 mt-2 border-t border-slate-100 flex-wrap gap-2">
                   <div className="flex items-center gap-2 flex-wrap">
                     <input
                       type="file"
@@ -875,7 +1023,7 @@ export const FeedView: React.FC<FeedViewProps> = ({
                           fileInputRef.current.click();
                         }
                       }}
-                      className="px-3 py-2 rounded-xl bg-blue-50/80 hover:bg-blue-100/80 dark:bg-blue-950/40 text-[#3B82F6] text-xs font-bold flex items-center gap-1.5 transition"
+                      className="px-3.5 py-2 rounded-xl bg-blue-50 hover:bg-blue-100/80 text-[#3B82F6] border border-blue-200/60 text-xs font-bold flex items-center gap-1.5 transition"
                     >
                       <ImageIcon size={15} />
                       <span>Photo</span>
@@ -889,31 +1037,42 @@ export const FeedView: React.FC<FeedViewProps> = ({
                           fileInputRef.current.click();
                         }
                       }}
-                      className="px-3 py-2 rounded-xl bg-emerald-50/80 hover:bg-emerald-100/80 dark:bg-emerald-950/40 text-[#10B981] text-xs font-bold flex items-center gap-1.5 transition"
+                      className="px-3.5 py-2 rounded-xl bg-emerald-50 hover:bg-emerald-100/80 text-[#10B981] border border-emerald-200/60 text-xs font-bold flex items-center gap-1.5 transition"
                     >
                       <VideoIcon size={15} />
-                      <span>Reel</span>
+                      <span>Video / Reel</span>
                     </button>
 
                     {onNavigateTab && (
-                      <button
-                        type="button"
-                        onClick={() => onNavigateTab('studio')}
-                        className="px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200/80 dark:bg-gray-800 text-[#0F172A] dark:text-gray-200 text-xs font-bold flex items-center gap-1.5 transition"
-                      >
-                        <Wand2 size={15} className="text-[#3B82F6]" />
-                        <span>Studio</span>
-                      </button>
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => onNavigateTab('studio')}
+                          className="px-3.5 py-2 rounded-xl bg-[#F8FAFC] hover:bg-slate-100 text-[#0F172A] border border-slate-200/80 text-xs font-bold flex items-center gap-1.5 transition"
+                        >
+                          <Wand2 size={15} className="text-[#3B82F6]" />
+                          <span>Studio</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => onNavigateTab('announcements')}
+                          className="px-3.5 py-2 rounded-xl bg-[#F8FAFC] hover:bg-slate-100 text-[#0F172A] border border-slate-200/80 text-xs font-bold flex items-center gap-1.5 transition"
+                        >
+                          <CalendarDays size={15} className="text-[#10B981]" />
+                          <span>Post Event</span>
+                        </button>
+                      </>
                     )}
                   </div>
 
                   <button
+                    type="button"
                     onClick={handleCreatePost}
-                    disabled={isSubmittingPost || (!inlineContent.trim() && !inlineMediaPreview)}
-                    className="px-6 py-2.5 rounded-2xl bg-[#3B82F6] hover:bg-blue-600 disabled:opacity-40 disabled:pointer-events-none text-white font-extrabold text-xs sm:text-sm flex items-center gap-2 shadow-md shadow-blue-500/20 active:scale-95 transition"
+                    disabled={isSubmittingPost || (!inlineContent.trim() && !inlineMediaPreview && !inlineMediaFile)}
+                    className="px-6 py-2.5 rounded-2xl bg-[#3B82F6] hover:bg-blue-600 disabled:opacity-40 disabled:pointer-events-none text-white font-extrabold text-xs sm:text-sm flex items-center gap-2 shadow-sm shadow-blue-500/20 active:scale-95 transition"
                   >
                     {isSubmittingPost ? (
-                      <span>Posting...</span>
+                      <span>Uploading...</span>
                     ) : (
                       <>
                         <Send size={14} />
@@ -927,18 +1086,18 @@ export const FeedView: React.FC<FeedViewProps> = ({
           </div>
 
           {/* Wave Studio Quick Action */}
-          <div className="bg-gradient-to-r from-blue-50/80 via-sky-50/60 to-emerald-50/70 border border-blue-200/70 dark:border-blue-900/40 rounded-3xl p-5 shadow-xs flex items-center justify-between flex-wrap gap-4">
+          <div className="bg-[#FFFFFF] border border-slate-200/90 rounded-3xl p-5 shadow-[0_2px_16px_-4px_rgba(15,23,42,0.05)] flex items-center justify-between flex-wrap gap-4">
             <div className="flex items-center gap-3.5">
-              <div className="p-3 rounded-2xl bg-gradient-to-tr from-blue-500 to-emerald-500 text-white shadow-md shadow-blue-500/20">
+              <div className="p-3 rounded-2xl bg-gradient-to-tr from-[#3B82F6] to-[#10B981] text-white shadow-sm shadow-blue-500/20">
                 <Wand2 size={22} className="text-white" />
               </div>
               <div>
-                <h3 className="font-extrabold text-sm sm:text-base text-slate-900 dark:text-white flex items-center gap-1.5">
-                  <span>Wave Studio Editor</span>
-                  <Sparkles size={14} className="text-emerald-500" />
+                <h3 className="font-extrabold text-sm sm:text-base text-[#0F172A] flex items-center gap-1.5">
+                  <span>Wave Media Studio</span>
+                  <Sparkles size={14} className="text-[#10B981]" />
                 </h3>
-                <p className="text-xs text-slate-600 dark:text-gray-400 max-w-md">
-                  Edit photos &amp; videos, add stylish text overlays, vibe stickers, and online soundtracks to publish on the feed!
+                <p className="text-xs text-slate-600 max-w-md">
+                  Edit photos &amp; videos, add text overlays, vibe stickers, and soundtracks before publishing to Firestore.
                 </p>
               </div>
             </div>
@@ -946,7 +1105,7 @@ export const FeedView: React.FC<FeedViewProps> = ({
             {onNavigateTab && (
               <button
                 onClick={() => onNavigateTab('studio')}
-                className="px-5 py-2.5 rounded-2xl bg-gradient-to-r from-blue-600 to-emerald-600 hover:from-blue-500 hover:to-emerald-500 text-white font-bold text-xs sm:text-sm flex items-center gap-2 shadow-sm shadow-blue-500/20 active:scale-95 transition"
+                className="px-5 py-2.5 rounded-2xl bg-[#0F172A] hover:bg-slate-800 text-white font-bold text-xs sm:text-sm flex items-center gap-2 shadow-xs active:scale-95 transition"
               >
                 <Wand2 size={15} />
                 <span>Open Media Studio</span>
@@ -959,20 +1118,20 @@ export const FeedView: React.FC<FeedViewProps> = ({
             {isLoading ? (
               <PostSkeleton count={3} />
             ) : combinedFeed.length === 0 ? (
-              <div className="text-center py-16 px-6 bg-white dark:bg-[#131927] border border-blue-200/80 dark:border-blue-900/40 rounded-3xl shadow-sm">
-                <div className="w-16 h-16 rounded-3xl bg-gradient-to-tr from-blue-500 to-emerald-500 text-white mx-auto flex items-center justify-center mb-4 shadow-md shadow-blue-500/20">
+              <div className="text-center py-16 px-6 bg-white border border-slate-200/90 rounded-3xl shadow-xs">
+                <div className="w-16 h-16 rounded-3xl bg-gradient-to-tr from-[#3B82F6] to-[#10B981] text-white mx-auto flex items-center justify-center mb-4 shadow-md shadow-blue-500/20">
                   <Waves size={32} />
                 </div>
-                <h3 className="text-xl font-extrabold text-[#0F172A] dark:text-white mb-1">
+                <h3 className="text-xl font-extrabold text-[#0F172A] mb-1">
                   Feed Is Clear & Ready!
                 </h3>
-                <p className="text-xs sm:text-sm text-slate-500 dark:text-gray-400 max-w-sm mx-auto mb-6 leading-relaxed">
-                  WaveLink operates with strict zero mock data. Open the Media Studio to design, edit photos & videos, and post the very first wave!
+                <p className="text-xs sm:text-sm text-slate-500 max-w-sm mx-auto mb-6 leading-relaxed">
+                  WaveLink operates with strict zero mock data. Share a photo or video above or open the Media Studio to post the first wave!
                 </p>
                 {onNavigateTab && (
                   <button
                     onClick={() => onNavigateTab('studio')}
-                    className="px-6 py-3 rounded-2xl bg-gradient-to-r from-blue-600 to-emerald-600 hover:from-blue-500 hover:to-emerald-500 text-white font-bold text-xs sm:text-sm shadow-sm shadow-blue-500/20 active:scale-95 transition inline-flex items-center gap-2"
+                    className="px-6 py-3 rounded-2xl bg-[#3B82F6] hover:bg-blue-600 text-white font-bold text-xs sm:text-sm shadow-sm shadow-blue-500/20 active:scale-95 transition inline-flex items-center gap-2"
                   >
                     <Wand2 size={16} />
                     <span>Open Media Studio</span>
@@ -993,7 +1152,7 @@ export const FeedView: React.FC<FeedViewProps> = ({
                   return (
                     <div
                       key={post.id}
-                      className="w-full my-4 rounded-3xl border border-blue-200/80 bg-white dark:bg-[#131927] p-4 sm:p-5 overflow-hidden text-slate-800 dark:text-slate-100 shadow-sm transition hover:border-blue-300"
+                      className="w-full my-4 rounded-3xl border border-slate-200/90 bg-white p-5 sm:p-6 overflow-hidden text-[#0F172A] shadow-[0_2px_16px_-4px_rgba(15,23,42,0.05)] transition hover:border-blue-300"
                     >
                       {/* Sponsored Header */}
                       <div className="flex items-center justify-between mb-3.5">
@@ -1001,37 +1160,37 @@ export const FeedView: React.FC<FeedViewProps> = ({
                           <img
                             src={post.authorPhotoURL}
                             alt={post.authorName}
-                            className="w-9 h-9 rounded-full object-cover ring-2 ring-blue-500/30 shrink-0"
+                            className="w-10 h-10 rounded-full object-cover ring-2 ring-blue-500/20 shrink-0"
                           />
                           <div className="min-w-0">
                             <div className="flex items-center gap-2 flex-wrap">
-                              <span className="font-extrabold text-sm sm:text-base text-[#0F172A] dark:text-white truncate">
+                              <span className="font-extrabold text-sm sm:text-base text-[#0F172A] truncate">
                                 {post.authorName}
                               </span>
-                              <span className="text-xs font-mono text-blue-600 dark:text-blue-400 font-semibold truncate">
+                              <span className="text-xs font-mono text-[#3B82F6] font-semibold truncate">
                                 {post.authorUsername}
                               </span>
                               {/* Subtle tiny sponsored tag */}
-                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase bg-blue-50 text-blue-700 dark:bg-blue-950/60 dark:text-blue-300 border border-blue-200/60 dark:border-blue-800">
+                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase bg-blue-50 text-blue-700 border border-blue-200/70">
                                 <Tag size={10} className="text-amber-500" />
                                 <span>Sponsored</span>
                               </span>
                             </div>
-                            <div className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-gray-400 mt-0.5">
-                              <span>Recommended Community Wave</span>
+                            <div className="flex items-center gap-1.5 text-xs text-slate-500 mt-0.5">
+                              <span>Recommended Partner Wave</span>
                             </div>
                           </div>
                         </div>
                       </div>
 
                       {/* Content */}
-                      <p className="text-sm text-slate-700 dark:text-gray-200 whitespace-pre-wrap leading-relaxed mb-3.5">
+                      <p className="text-sm text-slate-700 whitespace-pre-wrap leading-relaxed mb-3.5">
                         {post.content}
                       </p>
 
                       {/* Image */}
                       {post.imageUrl && (
-                        <div className="rounded-2xl overflow-hidden mb-3.5 border border-slate-100 dark:border-gray-800 max-h-96 bg-slate-50 dark:bg-gray-900 flex items-center justify-center">
+                        <div className="rounded-2xl overflow-hidden mb-3.5 border border-slate-200/80 max-h-96 bg-slate-50 flex items-center justify-center">
                           <img
                             src={post.imageUrl}
                             alt="Sponsored item"
@@ -1042,20 +1201,20 @@ export const FeedView: React.FC<FeedViewProps> = ({
 
                       {/* Smart Contextual Affiliate Shop Box */}
                       {post.affiliateProductTitle && (
-                        <div className="p-4 rounded-2xl bg-gradient-to-r from-blue-50 via-sky-50/50 to-emerald-50/40 dark:from-blue-950/40 dark:via-sky-950/30 dark:to-slate-900/40 border border-blue-200 dark:border-blue-800/80 mb-3.5 flex items-center justify-between flex-wrap gap-3">
+                        <div className="p-4 rounded-2xl bg-[#F8FAFC] border border-slate-200/90 mb-3.5 flex items-center justify-between flex-wrap gap-3">
                           <div className="min-w-0 flex-1">
                             <div className="flex items-center gap-2">
-                              <span className="text-[10px] font-black uppercase text-blue-600 dark:text-blue-400 tracking-wider">
+                              <span className="text-[10px] font-black uppercase text-[#3B82F6] tracking-wider">
                                 Featured Product
                               </span>
                               <span className="text-[10px] font-bold text-amber-500">
                                 ★ {post.affiliateRating || 4.9}
                               </span>
                             </div>
-                            <h4 className="font-bold text-xs sm:text-sm text-[#0F172A] dark:text-white truncate mt-0.5">
+                            <h4 className="font-bold text-xs sm:text-sm text-[#0F172A] truncate mt-0.5">
                               {post.affiliateProductTitle}
                             </h4>
-                            <span className="text-xs font-black font-mono text-emerald-600 dark:text-emerald-400">
+                            <span className="text-xs font-black font-mono text-emerald-600">
                               {post.affiliateProductPrice}
                             </span>
                           </div>
@@ -1064,7 +1223,7 @@ export const FeedView: React.FC<FeedViewProps> = ({
                             href={post.affiliateProductUrl}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="px-4 py-2.5 rounded-2xl bg-gradient-to-r from-blue-600 to-emerald-600 hover:from-blue-500 hover:to-emerald-500 text-white font-extrabold text-xs flex items-center gap-1.5 shadow-sm shadow-blue-600/20 active:scale-95 transition shrink-0"
+                            className="px-4 py-2.5 rounded-2xl bg-[#3B82F6] hover:bg-blue-600 text-white font-extrabold text-xs flex items-center gap-1.5 shadow-sm shadow-blue-600/20 active:scale-95 transition shrink-0"
                           >
                             <ShoppingBag size={14} />
                             <span>{post.affiliateButtonText || 'Shop Now'}</span>
@@ -1074,12 +1233,12 @@ export const FeedView: React.FC<FeedViewProps> = ({
                       )}
 
                       {/* Action Bar */}
-                      <div className="flex items-center justify-between pt-3 border-t border-slate-100 dark:border-gray-800 text-xs font-semibold text-slate-500 dark:text-gray-400 flex-wrap gap-2">
+                      <div className="flex items-center justify-between pt-3 border-t border-slate-100 text-xs font-semibold text-slate-500 flex-wrap gap-2">
                         <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
                           {renderReactionBar(post)}
                           <button
                             onClick={() => toggleComments(post.id)}
-                            className="flex items-center gap-1.5 py-1.5 px-3 rounded-xl hover:bg-slate-100 dark:hover:bg-gray-800 transition"
+                            className="flex items-center gap-1.5 py-1.5 px-3 rounded-xl hover:bg-slate-100 transition"
                           >
                             <MessageCircle size={16} />
                             <span className="font-mono tabular-numbers">{post.commentsCount || 0}</span>
@@ -1087,7 +1246,7 @@ export const FeedView: React.FC<FeedViewProps> = ({
                         </div>
                         <button
                           onClick={() => copyPostLink(post.id)}
-                          className="flex items-center gap-1.5 py-1.5 px-2.5 rounded-xl hover:bg-slate-100 dark:hover:bg-gray-800 transition"
+                          className="flex items-center gap-1.5 py-1.5 px-2.5 rounded-xl hover:bg-slate-100 transition"
                         >
                           <Share2 size={14} />
                           <span>Share</span>
@@ -1101,10 +1260,10 @@ export const FeedView: React.FC<FeedViewProps> = ({
                 return (
                   <article
                     key={post.id}
-                    className={`w-full max-w-full overflow-hidden break-words bg-[#FFFFFF] dark:bg-[#131927] border rounded-3xl p-5 sm:p-7 shadow-[0_4px_24px_-4px_rgba(15,23,42,0.06)] transition ${
+                    className={`w-full max-w-full overflow-hidden break-words bg-[#FFFFFF] border rounded-3xl p-5 sm:p-6 shadow-[0_2px_16px_-4px_rgba(15,23,42,0.05)] transition ${
                       post.isBoosted
-                        ? 'border-amber-400 dark:border-amber-500/60 ring-2 ring-amber-400/20 shadow-md shadow-amber-500/10'
-                        : 'border-slate-200/80 dark:border-gray-800 hover:border-blue-300 dark:hover:border-blue-900/60 hover:shadow-[0_8px_30px_-4px_rgba(15,23,42,0.09)]'
+                        ? 'border-amber-400 ring-2 ring-amber-400/20 shadow-md shadow-amber-500/10'
+                        : 'border-slate-200/90 hover:border-blue-300/80 hover:shadow-[0_8px_28px_-4px_rgba(15,23,42,0.08)]'
                     }`}
                   >
                     {/* Author Header */}
@@ -1126,7 +1285,7 @@ export const FeedView: React.FC<FeedViewProps> = ({
                               size="md"
                             />
                             {post.authorUsername && (
-                              <span className="text-xs font-mono text-[#3B82F6] dark:text-blue-400 font-semibold">
+                              <span className="text-xs font-mono text-[#3B82F6] font-semibold">
                                 {post.authorUsername}
                               </span>
                             )}
@@ -1139,7 +1298,7 @@ export const FeedView: React.FC<FeedViewProps> = ({
                             )}
                             {/* Tips received count */}
                             {Boolean(post.tipsTotalTZS && post.tipsTotalTZS > 0) && (
-                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-300/40">
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-300/50">
                                 <HandCoins size={10} />
                                 <span>TZS {post.tipsTotalTZS?.toLocaleString()} tips</span>
                               </span>
@@ -1165,7 +1324,7 @@ export const FeedView: React.FC<FeedViewProps> = ({
                         {isAuthor && !post.isBoosted && (
                           <button
                             onClick={() => setBoostingPost(post)}
-                            className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl text-[11px] font-bold bg-amber-50 hover:bg-amber-100 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border border-amber-300/60 dark:border-amber-800 transition active:scale-95 shadow-2xs"
+                            className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl text-[11px] font-bold bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-300/60 transition active:scale-95 shadow-2xs"
                             title="Boost Post Reach for 2,000 TZS micro-payment"
                           >
                             <Rocket size={12} className="text-amber-500" />
@@ -1197,18 +1356,18 @@ export const FeedView: React.FC<FeedViewProps> = ({
 
                     {/* Content or Inline Editor */}
                     {editingPostId === post.id ? (
-                      <div className="mb-4 p-3.5 rounded-2xl bg-blue-50/50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 space-y-2.5">
+                      <div className="mb-4 p-3.5 rounded-2xl bg-blue-50/50 border border-blue-200 space-y-2.5">
                         <textarea
                           rows={3}
                           value={editPostContent}
                           onChange={(e) => setEditPostContent(e.target.value)}
-                          className="w-full p-3 rounded-xl bg-white dark:bg-gray-800 border border-blue-300 dark:border-blue-700 text-xs sm:text-sm text-[#0F172A] dark:text-white focus:outline-none focus:ring-2 focus:ring-[#3B82F6] resize-none"
+                          className="w-full p-3 rounded-xl bg-white border border-blue-300 text-xs sm:text-sm text-[#0F172A] focus:outline-none focus:ring-2 focus:ring-[#3B82F6] resize-none"
                         />
                         <div className="flex items-center justify-end gap-2">
                           <button
                             type="button"
                             onClick={() => setEditingPostId(null)}
-                            className="px-3.5 py-1.5 rounded-xl text-xs font-semibold text-slate-500 hover:bg-slate-100 dark:hover:bg-gray-800"
+                            className="px-3.5 py-1.5 rounded-xl text-xs font-semibold text-slate-500 hover:bg-slate-100"
                           >
                             Cancel
                           </button>
@@ -1224,7 +1383,7 @@ export const FeedView: React.FC<FeedViewProps> = ({
                       </div>
                     ) : (
                       post.content && (
-                        <p className="text-sm sm:text-[15px] text-[#0F172A] dark:text-gray-200 whitespace-pre-wrap leading-relaxed mb-4">
+                        <p className="text-sm sm:text-[15px] text-[#0F172A] whitespace-pre-wrap leading-relaxed mb-4">
                           {post.content}
                           {post.isEdited && (
                             <span className="text-[10px] text-slate-400 italic ml-2">
@@ -1248,24 +1407,25 @@ export const FeedView: React.FC<FeedViewProps> = ({
                       </div>
                     )}
 
-                    {/* Attached Video from Folders / Community Hub */}
+                    {/* Attached Video from Firestore (Chunked or Direct) */}
                     {(post.videoUrl || post.hasVideoChunks || post.mediaType === 'video') && (
                       <div className="mb-3.5">
                         <VideoPlayer
                           postId={post.id}
                           videoUrl={post.videoUrl}
                           hasVideoChunks={post.hasVideoChunks}
+                          thumbnailUrl={post.thumbnailUrl || post.imageUrl}
                         />
                       </div>
                     )}
 
-                    {/* Attached Image from Folders */}
+                    {/* Attached Image from Firestore */}
                     {post.imageUrl && !post.videoUrl && !post.hasVideoChunks && post.mediaType !== 'video' && (
-                      <div className="rounded-2xl overflow-hidden mb-3.5 border border-gray-100 dark:border-gray-800 max-h-96 bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
+                      <div className="rounded-2xl overflow-hidden mb-3.5 border border-slate-200/80 max-h-[460px] bg-[#F8FAFC] flex items-center justify-center">
                         <img
                           src={post.imageUrl}
                           alt="Wave attachment"
-                          className="w-full h-auto max-h-96 object-cover"
+                          className="w-full h-auto max-h-[460px] object-cover"
                           onError={(e) => {
                             (e.target as HTMLElement).style.display = 'none';
                           }}
@@ -1274,7 +1434,7 @@ export const FeedView: React.FC<FeedViewProps> = ({
                     )}
 
                     {/* Action Bar */}
-                    <div className="flex items-center justify-between pt-3 border-t border-slate-100 dark:border-gray-800 text-xs font-semibold text-slate-500 dark:text-gray-400 flex-wrap gap-2">
+                    <div className="flex items-center justify-between pt-3 border-t border-slate-100 text-xs font-semibold text-slate-500 flex-wrap gap-2">
                       <div className="flex items-center gap-2 sm:gap-2.5 flex-wrap">
                         {/* Reactions: Like 👍, Heart ❤️, Fire 🔥 */}
                         {renderReactionBar(post)}
@@ -1284,8 +1444,8 @@ export const FeedView: React.FC<FeedViewProps> = ({
                           onClick={() => toggleComments(post.id)}
                           className={`flex items-center gap-1.5 py-1.5 px-3 rounded-xl transition ${
                             isExpanded
-                              ? 'text-[#3B82F6] bg-blue-50 dark:bg-blue-950/40 font-semibold'
-                              : 'hover:bg-slate-100 dark:hover:bg-gray-800'
+                              ? 'text-[#3B82F6] bg-blue-50 font-semibold'
+                              : 'hover:bg-slate-100'
                           }`}
                         >
                           <MessageCircle size={16} />
@@ -1295,7 +1455,7 @@ export const FeedView: React.FC<FeedViewProps> = ({
                         {/* Creator Tip Button */}
                         <button
                           onClick={() => setTippingPost(post)}
-                          className="flex items-center gap-1.5 py-1.5 px-3 rounded-xl transition hover:bg-amber-50 dark:hover:bg-amber-950/40 text-amber-700 dark:text-amber-300 font-bold active:scale-95 border border-amber-300/40"
+                          className="flex items-center gap-1.5 py-1.5 px-3 rounded-xl transition hover:bg-amber-50 text-amber-700 font-bold active:scale-95 border border-amber-300/50"
                           title="Tip creator directly via Mobile Money"
                         >
                           <HandCoins size={15} className="text-amber-500" />
@@ -1307,8 +1467,8 @@ export const FeedView: React.FC<FeedViewProps> = ({
                           onClick={() => handleToggleSave(post.id)}
                           className={`flex items-center gap-1.5 py-1.5 px-3 rounded-xl transition active:scale-95 ${
                             isSaved
-                              ? 'text-[#3B82F6] bg-blue-50 dark:bg-blue-950/40 font-bold'
-                              : 'hover:bg-slate-100 dark:hover:bg-gray-800'
+                              ? 'text-[#3B82F6] bg-blue-50 font-bold'
+                              : 'hover:bg-slate-100'
                           }`}
                           title={isSaved ? 'Saved to bookmarks' : 'Save post'}
                         >
@@ -1319,7 +1479,7 @@ export const FeedView: React.FC<FeedViewProps> = ({
 
                       <button
                         onClick={() => copyPostLink(post.id)}
-                        className="flex items-center gap-1.5 py-1.5 px-2.5 rounded-xl hover:bg-slate-100 dark:hover:bg-gray-800 transition"
+                        className="flex items-center gap-1.5 py-1.5 px-2.5 rounded-xl hover:bg-slate-100 transition"
                       >
                         {copiedId === post.id ? (
                           <Check size={14} className="text-[#10B981]" />

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { db, handleFirestoreError, OperationType } from '../firebase';
+import { db, handleFirestoreError, OperationType, cleanFirestoreData } from '../firebase';
 import {
   collection,
   query,
@@ -15,37 +15,34 @@ import {
 } from 'firebase/firestore';
 import { Announcement } from '../types';
 import { RichEventCard } from './RichEventCard';
-import { MobileMoneyPaymentModal } from './MobileMoneyPaymentModal';
+import { compressImage } from '../utils/mediaStorage';
 import {
   CalendarDays,
   Calendar,
   Clock,
   MapPin,
   Image as ImageIcon,
-  Sparkles,
-  ShieldCheck,
-  Crown,
   PlusCircle,
   X,
-  Filter,
   Megaphone,
   Church,
-  Users,
   Pin,
   Send,
   Loader2,
-  CheckCircle2
+  CheckCircle2,
+  Search,
+  AlertCircle
 } from 'lucide-react';
 
 export const AnnouncementsView: React.FC = () => {
-  const { currentUser, userProfile, isAdmin, isProEffective } = useAuth();
+  const { currentUser, userProfile, isAdmin, isProEffective, showGlobalToast } = useAuth();
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [activeFilter, setActiveFilter] = useState<'all' | 'event' | 'schedule' | 'announcement'>('all');
+  const [searchQuery, setSearchQuery] = useState('');
 
   // Creator Modal / Form state
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
-  const [isUpgradeModalOpen, setIsUpgradeModalOpen] = useState(false);
 
   // Form Fields
   const [title, setTitle] = useState('');
@@ -57,11 +54,11 @@ export const AnnouncementsView: React.FC = () => {
   const [priority, setPriority] = useState<'normal' | 'urgent'>('normal');
   const [isPinned, setIsPinned] = useState(false);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [isCompressingImage, setIsCompressingImage] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
+  const [postSuccessBanner, setPostSuccessBanner] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-
-  // Can the current user create notices? Only Pro users & Admins!
-  const canCreate = Boolean(userProfile?.isPro === true || isAdmin);
 
   useEffect(() => {
     const q = query(collection(db, 'announcements'), orderBy('createdAt', 'desc'));
@@ -70,72 +67,109 @@ export const AnnouncementsView: React.FC = () => {
       (snapshot) => {
         const list: Announcement[] = [];
         snapshot.forEach((d) => list.push({ id: d.id, ...d.data() } as Announcement));
+        // Sort pinned notices first, then newest
+        list.sort((a, b) => {
+          if (a.isPinned && !b.isPinned) return -1;
+          if (!a.isPinned && b.isPinned) return 1;
+          return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+        });
         setAnnouncements(list);
         setIsLoading(false);
       },
       (err) => {
-        handleFirestoreError(err, OperationType.LIST, 'announcements');
+        console.warn('Notice board listener notice:', err);
+        setIsLoading(false);
       }
     );
 
     return () => unsub();
   }, []);
 
-  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    if (file.size > 5 * 1024 * 1024) {
-      alert('Event banner image must be under 5MB.');
+    if (!file.type.startsWith('image/')) {
+      setFormError('Please select a valid image file (JPG, PNG, WebP).');
       return;
     }
 
-    const reader = new FileReader();
-    reader.onload = () => {
-      setImagePreview(reader.result as string);
-    };
-    reader.readAsDataURL(file);
+    setFormError(null);
+    setIsCompressingImage(true);
+    try {
+      // Compress and optimize image via Canvas so it safely fits in Firestore (< 450KB)
+      const compressedDataUrl = await compressImage(file, 1280, 720, 0.82);
+      setImagePreview(compressedDataUrl);
+    } catch (err) {
+      console.error('Image compression error:', err);
+      setFormError('Could not process event banner image. Please try another photo.');
+    } finally {
+      setIsCompressingImage(false);
+    }
   };
 
   const handleCreateNotice = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!canCreate || !currentUser || !title.trim() || !content.trim()) return;
+    setFormError(null);
+
+    if (!currentUser) {
+      setFormError('You must be signed in to post an event.');
+      return;
+    }
+
+    if (!title.trim() || !content.trim()) {
+      setFormError('Please provide both an Event Title and Description.');
+      return;
+    }
 
     setIsSubmitting(true);
     try {
-      const id = `notice_${Date.now()}`;
+      const id = `notice_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
       const isOfficialPartner = Boolean(
         userProfile?.isOfficialPartner ||
-        userProfile?.partnerType ||
-        isAdmin ||
-        currentUser.email === 'keylanmbilinyi5@gmail.com'
+          userProfile?.partnerType ||
+          isProEffective ||
+          isAdmin ||
+          currentUser.email === 'keylanmbilinyi5@gmail.com'
       );
 
-      const newNotice: Announcement = {
+      const emailPrefix = currentUser.email ? currentUser.email.split('@')[0] : 'member';
+      const newNotice: Record<string, any> = {
         id,
         authorId: currentUser.uid,
         authorEmail: currentUser.email || '',
-        authorName: userProfile?.displayName || currentUser.displayName || 'Community Member',
-        authorUsername: userProfile?.username,
-        authorPhotoURL: userProfile?.photoURL || currentUser.photoURL || undefined,
+        authorName: userProfile?.displayName || currentUser.displayName || 'Community Organizer',
+        authorUsername: userProfile?.username || `@${emailPrefix}`,
+        authorPhotoURL:
+          userProfile?.photoURL ||
+          currentUser.photoURL ||
+          `https://api.dicebear.com/7.x/shapes/svg?seed=${currentUser.uid}`,
         title: title.trim(),
         content: content.trim(),
         priority,
         type,
-        eventDate: eventDate.trim() || undefined,
-        eventTime: eventTime.trim() || undefined,
-        eventLocation: eventLocation.trim() || undefined,
-        imageUrl: imagePreview || undefined,
-        rsvpUserIds: [],
-        rsvpCount: 0,
+        rsvpUserIds: [currentUser.uid],
+        rsvpCount: 1,
         isPinned: isAdmin ? isPinned : false,
         isOfficialPartner,
-        partnerType: userProfile?.partnerType || (type === 'schedule' ? 'church' : undefined),
-        partnerBadgeTitle: userProfile?.partnerBadgeTitle || (isAdmin ? 'Admin Broadcast' : 'Verified Partner'),
+        partnerBadgeTitle:
+          userProfile?.partnerBadgeTitle ||
+          (isAdmin ? 'Official Admin' : isProEffective ? 'Verified Pro Organizer' : 'Community Organizer'),
         createdAt: new Date().toISOString()
       };
 
-      await setDoc(doc(db, 'announcements', id), newNotice);
+      if (eventDate.trim()) newNotice.eventDate = eventDate.trim();
+      if (eventTime.trim()) newNotice.eventTime = eventTime.trim();
+      if (eventLocation.trim()) newNotice.eventLocation = eventLocation.trim();
+      if (imagePreview) newNotice.imageUrl = imagePreview;
+      if (userProfile?.partnerType || type === 'schedule') {
+        newNotice.partnerType = userProfile?.partnerType || 'church';
+      }
+
+      // Use cleanFirestoreData to guarantee zero undefined fields before writing to Firestore
+      await setDoc(doc(db, 'announcements', id), cleanFirestoreData(newNotice));
+
+      const postedTitle = title.trim();
 
       // Reset Form
       setTitle('');
@@ -145,8 +179,18 @@ export const AnnouncementsView: React.FC = () => {
       setEventLocation('');
       setImagePreview(null);
       setIsPinned(false);
+      setPriority('normal');
       setIsCreateModalOpen(false);
-    } catch (err) {
+      setActiveFilter('all');
+
+      setPostSuccessBanner(`"${postedTitle}" has been published to the Community Notice Board!`);
+      if (showGlobalToast) {
+        showGlobalToast('Event published to Notice Board!');
+      }
+      setTimeout(() => setPostSuccessBanner(null), 5000);
+    } catch (err: any) {
+      console.error('Failed to publish event to Notice Board:', err);
+      setFormError('Could not publish event. Please check your connection and try again.');
       handleFirestoreError(err, OperationType.CREATE, 'announcements');
     } finally {
       setIsSubmitting(false);
@@ -158,14 +202,19 @@ export const AnnouncementsView: React.FC = () => {
     const target = announcements.find((a) => a.id === id);
     if (!target) return;
 
-    const alreadyGoing = target.rsvpUserIds?.includes(currentUser.uid);
+    const currentList = target.rsvpUserIds || [];
+    const alreadyGoing = currentList.includes(currentUser.uid);
+    const nextCount = alreadyGoing
+      ? Math.max(0, currentList.length - 1)
+      : currentList.length + 1;
     const docRef = doc(db, 'announcements', id);
 
     try {
       await updateDoc(docRef, {
         rsvpUserIds: alreadyGoing
           ? arrayRemove(currentUser.uid)
-          : arrayUnion(currentUser.uid)
+          : arrayUnion(currentUser.uid),
+        rsvpCount: nextCount
       });
     } catch (err) {
       console.error('Failed to update RSVP:', err);
@@ -173,10 +222,15 @@ export const AnnouncementsView: React.FC = () => {
   };
 
   const handleDeleteNotice = async (id: string) => {
-    if (!isAdmin) return;
-    if (!window.confirm('Delete this community notice / event?')) return;
+    const target = announcements.find((a) => a.id === id);
+    if (!target) return;
+    if (!isAdmin && target.authorId !== currentUser?.uid) return;
+
     try {
       await deleteDoc(doc(db, 'announcements', id));
+      if (showGlobalToast) {
+        showGlobalToast('Event removed from Notice Board.');
+      }
     } catch (err) {
       handleFirestoreError(err, OperationType.DELETE, `announcements/${id}`);
     }
@@ -184,151 +238,182 @@ export const AnnouncementsView: React.FC = () => {
 
   // Filtered list
   const filteredAnnouncements = announcements.filter((item) => {
-    if (activeFilter === 'all') return true;
-    if (activeFilter === 'event') return item.type === 'event' || Boolean(item.eventDate);
-    if (activeFilter === 'schedule') return item.type === 'schedule' || item.partnerType === 'church';
-    if (activeFilter === 'announcement') return item.type === 'announcement' || (!item.type && !item.eventDate);
-    return true;
+    const matchesCategory =
+      activeFilter === 'all'
+        ? true
+        : activeFilter === 'event'
+        ? item.type === 'event' || Boolean(item.eventDate)
+        : activeFilter === 'schedule'
+        ? item.type === 'schedule' || item.partnerType === 'church'
+        : item.type === 'announcement' || (!item.type && !item.eventDate);
+
+    if (!matchesCategory) return false;
+    if (!searchQuery.trim()) return true;
+
+    const q = searchQuery.toLowerCase();
+    return (
+      (item.title || '').toLowerCase().includes(q) ||
+      (item.content || '').toLowerCase().includes(q) ||
+      (item.eventLocation || '').toLowerCase().includes(q) ||
+      (item.authorName || '').toLowerCase().includes(q)
+    );
   });
 
+  const eventCount = announcements.filter((a) => a.type === 'event' || Boolean(a.eventDate)).length;
+  const scheduleCount = announcements.filter((a) => a.type === 'schedule' || a.partnerType === 'church').length;
+  const bulletinCount = announcements.filter((a) => a.type === 'announcement' || (!a.type && !a.eventDate)).length;
+
   return (
-    <div className="max-w-4xl mx-auto py-6 px-3 sm:px-6 space-y-6">
-      {/* Warm, Bright Light Mode Header Banner */}
-      <div className="bg-gradient-to-r from-blue-600 via-sky-500 to-emerald-500 rounded-3xl p-6 sm:p-8 text-white shadow-md shadow-blue-500/20 flex items-center justify-between flex-wrap gap-4">
+    <div className="max-w-5xl mx-auto py-6 px-4 sm:px-6 space-y-6">
+      {/* Clean Pure White Architectural Header */}
+      <div className="bg-white border border-slate-200/90 rounded-2xl p-6 sm:p-8 shadow-[0_2px_12px_-2px_rgba(15,23,42,0.04)] flex items-center justify-between flex-wrap gap-5">
         <div className="max-w-xl">
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/20 backdrop-blur-md text-xs font-bold uppercase tracking-wider mb-2.5">
-            <CalendarDays size={14} className="text-amber-200" />
-            <span>Community Hub</span>
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-blue-50 text-blue-700 border border-blue-200/80 text-xs font-bold uppercase tracking-wider mb-3">
+            <CalendarDays size={14} className="text-blue-600" />
+            <span>Community Notice Board</span>
           </div>
-          <h2 className="text-2xl sm:text-3xl font-black tracking-tight text-white">
-            Community Notice Board &amp; Events
+          <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-900">
+            Events, Schedules &amp; Bulletins
           </h2>
-          <p className="text-blue-50 text-xs sm:text-sm mt-1.5 leading-relaxed">
-            Discover local announcements, church schedules, and neighborhood gatherings. Verified leaders and Pro creators keep your community connected.
+          <p className="text-slate-600 text-xs sm:text-sm mt-1.5 leading-relaxed">
+            Publish upcoming community events, church schedules, and official announcements. Members can RSVP in real time and share event cards across the network.
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
-          {canCreate ? (
+        <div className="flex items-center gap-3 shrink-0">
+          <button
+            type="button"
+            onClick={() => {
+              setFormError(null);
+              setIsCreateModalOpen(true);
+            }}
+            className="px-5 py-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs sm:text-sm flex items-center gap-2 shadow-sm shadow-blue-600/20 active:scale-95 transition whitespace-nowrap"
+          >
+            <PlusCircle size={17} />
+            <span>Post Event / Notice</span>
+          </button>
+        </div>
+      </div>
+
+      {/* Confirmation Banner after Posting an Event */}
+      {postSuccessBanner && (
+        <div className="p-4 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-900 text-xs sm:text-sm font-bold flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2.5">
+            <CheckCircle2 size={18} className="text-emerald-600 shrink-0" />
+            <span>{postSuccessBanner}</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setPostSuccessBanner(null)}
+            className="text-emerald-700 hover:text-emerald-950 p-1 rounded-lg"
+          >
+            <X size={15} />
+          </button>
+        </div>
+      )}
+
+      {/* Filter Tabs + Live Search Bar */}
+      <div className="bg-white border border-slate-200/90 rounded-2xl p-3 sm:p-4 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 shadow-[0_1px_4px_rgba(15,23,42,0.03)]">
+        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0 scrollbar-none">
+          <button
+            type="button"
+            onClick={() => setActiveFilter('all')}
+            className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${
+              activeFilter === 'all'
+                ? 'bg-slate-900 text-white'
+                : 'bg-slate-50 text-slate-600 hover:bg-slate-100'
+            }`}
+          >
+            All ({announcements.length})
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveFilter('event')}
+            className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 whitespace-nowrap ${
+              activeFilter === 'event'
+                ? 'bg-blue-600 text-white'
+                : 'bg-slate-50 text-slate-600 hover:bg-slate-100'
+            }`}
+          >
+            <Calendar size={13} />
+            <span>Events ({eventCount})</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveFilter('schedule')}
+            className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 whitespace-nowrap ${
+              activeFilter === 'schedule'
+                ? 'bg-emerald-600 text-white'
+                : 'bg-slate-50 text-slate-600 hover:bg-slate-100'
+            }`}
+          >
+            <Church size={13} />
+            <span>Schedules ({scheduleCount})</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveFilter('announcement')}
+            className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 whitespace-nowrap ${
+              activeFilter === 'announcement'
+                ? 'bg-amber-600 text-white'
+                : 'bg-slate-50 text-slate-600 hover:bg-slate-100'
+            }`}
+          >
+            <Megaphone size={13} />
+            <span>Bulletins ({bulletinCount})</span>
+          </button>
+        </div>
+
+        <div className="relative w-full sm:w-64 shrink-0">
+          <Search size={14} className="absolute left-3 top-2.5 text-slate-400 pointer-events-none" />
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Filter by title or venue..."
+            className="w-full pl-8 pr-8 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:bg-white focus:border-blue-500"
+          />
+          {searchQuery && (
             <button
-              onClick={() => setIsCreateModalOpen(true)}
-              className="px-5 py-3 rounded-2xl bg-white text-blue-600 hover:bg-blue-50 font-extrabold text-xs sm:text-sm flex items-center gap-2 shadow-lg shadow-blue-900/10 active:scale-95 transition"
+              type="button"
+              onClick={() => setSearchQuery('')}
+              className="absolute right-2.5 top-2.5 text-slate-400 hover:text-slate-600"
             >
-              <PlusCircle size={18} className="text-emerald-500" />
-              <span>Post Event / Notice</span>
-            </button>
-          ) : (
-            <button
-              onClick={() => setIsUpgradeModalOpen(true)}
-              className="px-5 py-3 rounded-2xl bg-amber-400 hover:bg-amber-300 text-slate-950 font-black text-xs sm:text-sm flex items-center gap-2 shadow-lg shadow-amber-950/20 active:scale-95 transition"
-            >
-              <Crown size={16} />
-              <span>Upgrade to Post</span>
+              <X size={13} />
             </button>
           )}
         </div>
       </div>
 
-      {/* Pro Perks Notice for Free Non-Admin Users */}
-      {!canCreate && (
-        <div className="p-4 sm:p-5 rounded-3xl bg-white border border-blue-200/90 shadow-xs flex items-center justify-between flex-wrap gap-4">
-          <div className="flex items-start gap-3">
-            <div className="p-2.5 rounded-2xl bg-blue-50 text-blue-600 shrink-0">
-              <Crown size={20} className="text-amber-500" />
-            </div>
-            <div>
-              <h4 className="font-extrabold text-slate-900 text-sm">
-                Pro Community Privilege: Post Events &amp; Bulletins
-              </h4>
-              <p className="text-xs text-slate-500 mt-0.5">
-                WaveLink Pro members and verified partners can broadcast public events with formatted dates, venues, header photos, and collect RSVPs.
-              </p>
-            </div>
-          </div>
-
-          <button
-            onClick={() => setIsUpgradeModalOpen(true)}
-            className="px-4 py-2 rounded-2xl bg-gradient-to-r from-blue-600 to-emerald-600 text-white font-black text-xs shadow-xs hover:opacity-95 active:scale-95 transition"
-          >
-            Unlock with Pro
-          </button>
-        </div>
-      )}
-
-      {/* Filter Tabs */}
-      <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
-        <button
-          onClick={() => setActiveFilter('all')}
-          className={`px-4 py-2 rounded-2xl text-xs font-extrabold transition-all whitespace-nowrap ${
-            activeFilter === 'all'
-              ? 'bg-blue-600 text-white shadow-xs'
-              : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
-          }`}
-        >
-          All Notices ({announcements.length})
-        </button>
-
-        <button
-          onClick={() => setActiveFilter('event')}
-          className={`px-4 py-2 rounded-2xl text-xs font-extrabold transition-all flex items-center gap-1.5 whitespace-nowrap ${
-            activeFilter === 'event'
-              ? 'bg-blue-600 text-white shadow-xs'
-              : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
-          }`}
-        >
-          <Calendar size={13} />
-          <span>Community Events</span>
-        </button>
-
-        <button
-          onClick={() => setActiveFilter('schedule')}
-          className={`px-4 py-2 rounded-2xl text-xs font-extrabold transition-all flex items-center gap-1.5 whitespace-nowrap ${
-            activeFilter === 'schedule'
-              ? 'bg-blue-600 text-white shadow-xs'
-              : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
-          }`}
-        >
-          <Church size={13} />
-          <span>Church Schedules</span>
-        </button>
-
-        <button
-          onClick={() => setActiveFilter('announcement')}
-          className={`px-4 py-2 rounded-2xl text-xs font-extrabold transition-all flex items-center gap-1.5 whitespace-nowrap ${
-            activeFilter === 'announcement'
-              ? 'bg-blue-600 text-white shadow-xs'
-              : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
-          }`}
-        >
-          <Megaphone size={13} />
-          <span>Official Bulletins</span>
-        </button>
-      </div>
-
       {/* Announcements & Events Feed List */}
       <div className="space-y-4">
         {isLoading ? (
-          <div className="py-16 text-center text-slate-400 text-xs flex flex-col items-center gap-2">
-            <Loader2 size={24} className="animate-spin text-blue-500" />
+          <div className="py-16 text-center bg-white border border-slate-200/90 rounded-2xl text-slate-500 text-xs flex flex-col items-center gap-2">
+            <Loader2 size={24} className="animate-spin text-blue-600" />
             <span>Loading community notice board...</span>
           </div>
         ) : filteredAnnouncements.length === 0 ? (
-          <div className="text-center py-16 bg-white border border-slate-200/90 rounded-3xl p-8 shadow-xs">
-            <CalendarDays size={36} className="mx-auto text-slate-300 mb-3" />
+          <div className="text-center py-16 bg-white border border-slate-200/90 rounded-2xl p-8 shadow-2xs">
+            <div className="w-12 h-12 rounded-2xl bg-blue-50 text-blue-600 mx-auto flex items-center justify-center mb-3">
+              <CalendarDays size={24} />
+            </div>
             <h4 className="text-base font-extrabold text-slate-900">
-              No Notices in this Category
+              No Events or Notices Found
             </h4>
             <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto">
-              Be the first to share upcoming neighborhood events or church services with the community!
+              Be the first to publish an upcoming community event, gathering, or service schedule on the Notice Board.
             </p>
-            {canCreate && (
-              <button
-                onClick={() => setIsCreateModalOpen(true)}
-                className="mt-4 px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs"
-              >
-                Post First Event
-              </button>
-            )}
+            <button
+              type="button"
+              onClick={() => setIsCreateModalOpen(true)}
+              className="mt-4 px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs inline-flex items-center gap-1.5 shadow-xs"
+            >
+              <PlusCircle size={15} />
+              <span>Post First Event</span>
+            </button>
           </div>
         ) : (
           filteredAnnouncements.map((ann) => (
@@ -344,75 +429,83 @@ export const AnnouncementsView: React.FC = () => {
 
       {/* Create Event / Notice Modal */}
       {isCreateModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-slate-900/60 backdrop-blur-md animate-fade-in">
-          <div className="relative w-full max-w-xl bg-white border border-slate-200 rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[92vh]">
-            <div className="flex items-center justify-between p-5 border-b border-slate-100 bg-gradient-to-r from-blue-50/80 to-emerald-50/80">
-              <div className="flex items-center gap-2.5">
-                <div className="p-2 rounded-xl bg-blue-500 text-white shadow-xs">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-slate-900/40 backdrop-blur-xs">
+          <div className="relative w-full max-w-xl bg-white border border-slate-200 rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[92vh]">
+            <div className="flex items-center justify-between p-5 border-b border-slate-100 bg-white">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 rounded-xl bg-blue-600 text-white">
                   <CalendarDays size={18} />
                 </div>
                 <div>
                   <h3 className="font-extrabold text-slate-900 text-base">
-                    Publish Community Notice / Event
+                    Post Community Event or Notice
                   </h3>
                   <p className="text-xs text-slate-500">
-                    Visible to all members on the Community Notice Board
+                    Published immediately to the WaveLink Notice Board
                   </p>
                 </div>
               </div>
 
               <button
+                type="button"
                 onClick={() => setIsCreateModalOpen(false)}
-                className="p-1.5 text-slate-400 hover:text-slate-600 rounded-xl"
+                className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-xl transition"
               >
                 <X size={18} />
               </button>
             </div>
 
-            <form onSubmit={handleCreateNotice} className="p-5 sm:p-6 overflow-y-auto space-y-4">
-              {/* Type Selection */}
+            <form onSubmit={handleCreateNotice} className="p-5 sm:p-6 overflow-y-auto space-y-4 bg-white">
+              {formError && (
+                <div className="p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-semibold flex items-center gap-2">
+                  <AlertCircle size={15} className="shrink-0 text-rose-600" />
+                  <span>{formError}</span>
+                </div>
+              )}
+
+              {/* Category Selection */}
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1.5">
-                  Category
+                  Notice Category
                 </label>
                 <div className="grid grid-cols-3 gap-2">
                   <button
                     type="button"
                     onClick={() => setType('event')}
-                    className={`p-2.5 rounded-2xl border text-xs font-bold flex flex-col items-center gap-1 transition ${
+                    className={`p-2.5 rounded-xl border text-xs font-bold flex items-center justify-center gap-1.5 transition ${
                       type === 'event'
-                        ? 'border-blue-500 bg-blue-50 text-blue-700'
+                        ? 'border-blue-600 bg-blue-50/80 text-blue-700'
                         : 'border-slate-200 text-slate-600 hover:bg-slate-50'
                     }`}
                   >
-                    <Calendar size={16} />
+                    <Calendar size={15} />
                     <span>Event</span>
                   </button>
 
                   <button
                     type="button"
                     onClick={() => setType('schedule')}
-                    className={`p-2.5 rounded-2xl border text-xs font-bold flex flex-col items-center gap-1 transition ${
+                    className={`p-2.5 rounded-xl border text-xs font-bold flex items-center justify-center gap-1.5 transition ${
                       type === 'schedule'
-                        ? 'border-blue-500 bg-blue-50 text-blue-700'
+                        ? 'border-emerald-600 bg-emerald-50/80 text-emerald-700'
                         : 'border-slate-200 text-slate-600 hover:bg-slate-50'
                     }`}
                   >
-                    <Church size={16} />
-                    <span>Church Schedule</span>
+                    <Church size={15} />
+                    <span>Schedule</span>
                   </button>
 
                   <button
                     type="button"
                     onClick={() => setType('announcement')}
-                    className={`p-2.5 rounded-2xl border text-xs font-bold flex flex-col items-center gap-1 transition ${
+                    className={`p-2.5 rounded-xl border text-xs font-bold flex items-center justify-center gap-1.5 transition ${
                       type === 'announcement'
-                        ? 'border-blue-500 bg-blue-50 text-blue-700'
+                        ? 'border-amber-600 bg-amber-50/80 text-amber-700'
                         : 'border-slate-200 text-slate-600 hover:bg-slate-50'
                     }`}
                   >
-                    <Megaphone size={16} />
-                    <span>Announcement</span>
+                    <Megaphone size={15} />
+                    <span>Bulletin</span>
                   </button>
                 </div>
               </div>
@@ -420,15 +513,15 @@ export const AnnouncementsView: React.FC = () => {
               {/* Title */}
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1">
-                  Title / Headline
+                  Event / Notice Title <span className="text-rose-500">*</span>
                 </label>
                 <input
                   type="text"
                   required
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
-                  placeholder="e.g. Sunday Youth Choir Service & Gathering"
-                  className="w-full px-3.5 py-2.5 rounded-2xl bg-slate-50 border border-slate-200 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                  placeholder="e.g. Dar Tech Creators Meetup & Demo Day"
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600"
                 />
               </div>
 
@@ -436,110 +529,160 @@ export const AnnouncementsView: React.FC = () => {
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div>
                   <label className="block text-[11px] font-bold text-slate-600 mb-1">
-                    Event Date
+                    Date
                   </label>
-                  <input
-                    type="text"
-                    value={eventDate}
-                    onChange={(e) => setEventDate(e.target.value)}
-                    placeholder="e.g. Sun, Nov 15"
-                    className="w-full px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
+                  <div className="relative">
+                    <Calendar size={13} className="absolute left-3 top-2.5 text-slate-400 pointer-events-none" />
+                    <input
+                      type="text"
+                      value={eventDate}
+                      onChange={(e) => setEventDate(e.target.value)}
+                      placeholder="e.g. Sat, Nov 14"
+                      className="w-full pl-8 pr-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:bg-white focus:border-blue-600"
+                    />
+                  </div>
                 </div>
 
                 <div>
                   <label className="block text-[11px] font-bold text-slate-600 mb-1">
                     Time
                   </label>
-                  <input
-                    type="text"
-                    value={eventTime}
-                    onChange={(e) => setEventTime(e.target.value)}
-                    placeholder="e.g. 10:00 AM"
-                    className="w-full px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
+                  <div className="relative">
+                    <Clock size={13} className="absolute left-3 top-2.5 text-slate-400 pointer-events-none" />
+                    <input
+                      type="text"
+                      value={eventTime}
+                      onChange={(e) => setEventTime(e.target.value)}
+                      placeholder="e.g. 2:00 PM EAT"
+                      className="w-full pl-8 pr-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:bg-white focus:border-blue-600"
+                    />
+                  </div>
                 </div>
 
                 <div>
                   <label className="block text-[11px] font-bold text-slate-600 mb-1">
                     Venue / Location
                   </label>
-                  <input
-                    type="text"
-                    value={eventLocation}
-                    onChange={(e) => setEventLocation(e.target.value)}
-                    placeholder="e.g. Kinondoni Church"
-                    className="w-full px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
+                  <div className="relative">
+                    <MapPin size={13} className="absolute left-3 top-2.5 text-slate-400 pointer-events-none" />
+                    <input
+                      type="text"
+                      value={eventLocation}
+                      onChange={(e) => setEventLocation(e.target.value)}
+                      placeholder="e.g. Mlimani City Hall"
+                      className="w-full pl-8 pr-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:bg-white focus:border-blue-600"
+                    />
+                  </div>
                 </div>
               </div>
 
               {/* Message Details */}
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1">
-                  Details &amp; Schedule
+                  Description &amp; Program Details <span className="text-rose-500">*</span>
                 </label>
                 <textarea
                   required
                   rows={4}
                   value={content}
                   onChange={(e) => setContent(e.target.value)}
-                  placeholder="Provide all essential event details, speaker lineup, or order of service..."
-                  className="w-full p-3.5 rounded-2xl bg-slate-50 border border-slate-200 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 resize-none leading-relaxed"
+                  placeholder="Share the event agenda, speakers, entry details, or important instructions..."
+                  className="w-full p-3.5 rounded-xl bg-slate-50 border border-slate-200 text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 resize-none leading-relaxed"
                 />
               </div>
 
-              {/* Optional Header Banner Image Upload */}
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">
-                  Header Event Image
-                </label>
-                <input
-                  type="file"
-                  accept="image/*"
-                  ref={fileInputRef}
-                  onChange={handleImageSelect}
-                  className="hidden"
-                />
-
-                {imagePreview ? (
-                  <div className="relative rounded-2xl overflow-hidden aspect-21/9 bg-slate-100 border border-slate-200">
-                    <img
-                      src={imagePreview}
-                      alt="Preview"
-                      className="w-full h-full object-cover"
-                    />
+              {/* Priority & Header Banner Image Upload */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    Priority Level
+                  </label>
+                  <div className="flex rounded-xl bg-slate-50 border border-slate-200 p-1">
                     <button
                       type="button"
-                      onClick={() => setImagePreview(null)}
-                      className="absolute top-2 right-2 p-1.5 rounded-full bg-slate-900/70 text-white hover:bg-slate-900 transition"
+                      onClick={() => setPriority('normal')}
+                      className={`flex-1 py-1.5 rounded-lg text-xs font-bold transition ${
+                        priority === 'normal'
+                          ? 'bg-white text-slate-900 shadow-2xs border border-slate-200/80'
+                          : 'text-slate-500'
+                      }`}
                     >
-                      <X size={14} />
+                      Standard
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setPriority('urgent')}
+                      className={`flex-1 py-1.5 rounded-lg text-xs font-bold transition ${
+                        priority === 'urgent'
+                          ? 'bg-rose-600 text-white shadow-2xs'
+                          : 'text-slate-500'
+                      }`}
+                    >
+                      Urgent
                     </button>
                   </div>
-                ) : (
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    Event Banner Photo (Stored in Firestore)
+                  </label>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    ref={fileInputRef}
+                    onChange={handleImageSelect}
+                    className="hidden"
+                  />
                   <button
                     type="button"
+                    disabled={isCompressingImage}
                     onClick={() => fileInputRef.current?.click()}
-                    className="w-full py-4 rounded-2xl border-2 border-dashed border-slate-200 hover:border-blue-400 bg-slate-50/60 hover:bg-blue-50/30 text-slate-500 text-xs font-bold flex flex-col items-center justify-center gap-1 transition"
+                    className="w-full py-2 px-3 rounded-xl border border-dashed border-slate-300 hover:border-blue-500 bg-slate-50 hover:bg-blue-50/40 text-slate-700 text-xs font-bold flex items-center justify-center gap-2 transition"
                   >
-                    <ImageIcon size={20} className="text-slate-400" />
-                    <span>Upload Event Header Photo (Max 5MB)</span>
+                    {isCompressingImage ? (
+                      <>
+                        <Loader2 size={14} className="animate-spin text-blue-600" />
+                        <span>Optimizing Photo...</span>
+                      </>
+                    ) : (
+                      <>
+                        <ImageIcon size={14} className="text-blue-600" />
+                        <span>{imagePreview ? 'Change Banner Photo' : 'Upload Banner Photo'}</span>
+                      </>
+                    )}
                   </button>
-                )}
+                </div>
               </div>
+
+              {imagePreview && (
+                <div className="relative rounded-xl overflow-hidden aspect-21/9 bg-slate-100 border border-slate-200">
+                  <img
+                    src={imagePreview}
+                    alt="Event banner preview"
+                    className="w-full h-full object-cover"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setImagePreview(null)}
+                    className="absolute top-2 right-2 p-1.5 rounded-full bg-slate-900/75 text-white hover:bg-slate-900 transition"
+                  >
+                    <X size={14} />
+                  </button>
+                </div>
+              )}
 
               {/* Admin Options: Pin to Top */}
               {isAdmin && (
-                <div className="p-3.5 rounded-2xl bg-amber-50/70 border border-amber-200/80 flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Pin size={16} className="text-amber-600 rotate-45" />
+                <div className="p-3.5 rounded-xl bg-blue-50/60 border border-blue-200/80 flex items-center justify-between">
+                  <div className="flex items-center gap-2.5">
+                    <Pin size={16} className="text-blue-600 rotate-45" />
                     <div>
-                      <div className="text-xs font-bold text-amber-950">
-                        Pin to Top of Notice Board &amp; Feed
+                      <div className="text-xs font-bold text-slate-900">
+                        Pin to Top of Notice Board &amp; Home Feed
                       </div>
-                      <div className="text-[10px] text-amber-700">
-                        Displays high-priority banner at top of all feeds
+                      <div className="text-[11px] text-slate-500">
+                        Highlights this event at the top of the community feed
                       </div>
                     </div>
                   </div>
@@ -553,25 +696,28 @@ export const AnnouncementsView: React.FC = () => {
               )}
 
               {/* Submit Button */}
-              <div className="pt-2 flex items-center justify-end gap-2">
+              <div className="pt-3 border-t border-slate-100 flex items-center justify-end gap-2">
                 <button
                   type="button"
                   onClick={() => setIsCreateModalOpen(false)}
-                  className="px-4 py-2.5 rounded-2xl text-xs font-bold text-slate-600 hover:bg-slate-100"
+                  className="px-4 py-2.5 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  disabled={isSubmitting || !title.trim() || !content.trim()}
-                  className="px-6 py-2.5 rounded-2xl bg-gradient-to-r from-blue-600 to-emerald-600 hover:from-blue-500 hover:to-emerald-500 disabled:opacity-50 text-white font-extrabold text-xs shadow-md transition flex items-center gap-2"
+                  disabled={isSubmitting || isCompressingImage || !title.trim() || !content.trim()}
+                  className="px-6 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-bold text-xs shadow-sm transition flex items-center gap-2"
                 >
                   {isSubmitting ? (
-                    <Loader2 size={15} className="animate-spin" />
+                    <>
+                      <Loader2 size={14} className="animate-spin" />
+                      <span>Publishing Event...</span>
+                    </>
                   ) : (
                     <>
                       <Send size={14} />
-                      <span>Publish to Community</span>
+                      <span>Post Event Now</span>
                     </>
                   )}
                 </button>
@@ -579,14 +725,6 @@ export const AnnouncementsView: React.FC = () => {
             </form>
           </div>
         </div>
-      )}
-
-      {/* Pro Upgrade Modal */}
-      {isUpgradeModalOpen && (
-        <MobileMoneyPaymentModal
-          onClose={() => setIsUpgradeModalOpen(false)}
-          onSuccess={() => setIsUpgradeModalOpen(false)}
-        />
       )}
     </div>
   );

@@ -35,7 +35,7 @@ export const MobileMoneyPaymentModal: React.FC<MobileMoneyPaymentModalProps> = (
   onClose,
   onSuccess
 }) => {
-  const { currentUser, userProfile, activateHarvestPass, showGlobalToast } = useAuth();
+  const { currentUser, userProfile, activateHarvestPass, verifyAndRedeemCoupon, showGlobalToast } = useAuth();
 
   // Official Admin recipient phone number
   const ADMIN_PHONE_NUMBER = '0787473334';
@@ -177,15 +177,15 @@ export const MobileMoneyPaymentModal: React.FC<MobileMoneyPaymentModalProps> = (
   };
 
   /**
-   * Coupon Code: HARVEST2026 (case-insensitive) activates 1-Year Community Pass instantly,
-   * bypasses backend network checks if they fail, updates user.isPro = true and Blue Star,
-   * removes Adsterra ads, shows "Harvest Pass Activated!" toast, and closes the modal.
+   * Official Coupon Code Verification:
+   * Verifies code against official pass or Firestore coupon collection,
+   * sets user.isPro = true, awards Pro badge, removes ads, and closes modal.
    */
   const handleApplyCoupon = async (e: React.FormEvent) => {
     e.preventDefault();
     const clean = couponCode.trim().toUpperCase();
     if (!clean) {
-      setCouponError('Please enter a promo code');
+      setCouponError('Please enter an official coupon code');
       return;
     }
 
@@ -193,9 +193,9 @@ export const MobileMoneyPaymentModal: React.FC<MobileMoneyPaymentModalProps> = (
     setIsVerifyingCoupon(true);
 
     try {
-      if (clean === 'HARVEST2026') {
-        await activateHarvestPass();
-        setCouponSuccess('Harvest Pass Activated!');
+      const isValid = clean === 'HARVEST2026' ? (await activateHarvestPass(), true) : await verifyAndRedeemCoupon(clean);
+      if (isValid) {
+        setCouponSuccess('Official Pass Activated!');
         setIsVerifyingCoupon(false);
 
         setTimeout(() => {
@@ -204,12 +204,13 @@ export const MobileMoneyPaymentModal: React.FC<MobileMoneyPaymentModalProps> = (
         }, 650);
         return;
       } else {
-        setCouponError('Invalid coupon code. Try HARVEST2026 for a 1-year pass.');
+        setCouponError('Invalid or expired coupon code. Please verify your code and try again.');
       }
     } catch (err: any) {
       console.warn('Coupon redemption fallback:', err);
       if (clean === 'HARVEST2026') {
-        setCouponSuccess('Harvest Pass Activated!');
+        await activateHarvestPass();
+        setCouponSuccess('Official Pass Activated!');
         setIsVerifyingCoupon(false);
         setTimeout(() => {
           if (onSuccess) onSuccess();
@@ -486,14 +487,18 @@ export const MobileMoneyPaymentModal: React.FC<MobileMoneyPaymentModalProps> = (
 
           {/* 3. Promo / Coupon Code Section */}
           <div className="pt-3 border-t border-slate-100">
-            <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-2.5">
+            <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-2.5 shadow-2xs">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
                   <Gift size={15} className="text-emerald-500" />
                   <span>Have a Coupon Code?</span>
                 </span>
-                <span className="text-[10px] text-slate-500">100% Free Pass</span>
+                <span className="text-[10px] text-slate-500 font-semibold">Official Pass</span>
               </div>
+
+              <p className="text-xs text-slate-500 leading-relaxed">
+                Enter your official coupon code below to activate your pass.
+              </p>
 
               {couponError && (
                 <div className="text-[11px] text-rose-600 font-medium flex items-center gap-1">
@@ -509,7 +514,7 @@ export const MobileMoneyPaymentModal: React.FC<MobileMoneyPaymentModalProps> = (
                     type="text"
                     value={couponCode}
                     onChange={(e) => setCouponCode(e.target.value)}
-                    placeholder="Enter code (e.g. HARVEST2026)"
+                    placeholder="Enter official coupon code"
                     className="w-full pl-9 pr-3 py-2 rounded-xl bg-white border border-slate-200 text-slate-900 placeholder-slate-400 font-mono text-xs uppercase focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition"
                   />
                 </div>

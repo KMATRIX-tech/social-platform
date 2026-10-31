@@ -15,6 +15,7 @@ interface VideoPlayerProps {
   postId: string;
   videoUrl?: string;
   hasVideoChunks?: boolean;
+  thumbnailUrl?: string;
   className?: string;
   autoPlayOnVisible?: boolean;
   defaultMuted?: boolean;
@@ -24,6 +25,7 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
   postId,
   videoUrl,
   hasVideoChunks,
+  thumbnailUrl,
   className = '',
   autoPlayOnVisible = true,
   defaultMuted = true
@@ -187,19 +189,19 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
 
   if (isLoading) {
     return (
-      <div className={`aspect-video w-full rounded-2xl bg-black/90 border border-purple-900/40 flex flex-col items-center justify-center text-white/80 ${className}`}>
-        <Loader2 className="w-8 h-8 animate-spin text-purple-400 mb-2" />
-        <span className="text-xs font-semibold">Loading video wave...</span>
-        <span className="text-[10px] text-gray-400 mt-0.5">Assembling high-definition stream</span>
+      <div className={`aspect-video w-full rounded-2xl bg-slate-900 border border-slate-200 flex flex-col items-center justify-center text-white/90 ${className}`}>
+        <Loader2 className="w-8 h-8 animate-spin text-[#3B82F6] mb-2" />
+        <span className="text-xs font-semibold">Loading video from Firestore...</span>
+        <span className="text-[10px] text-slate-400 mt-0.5">Assembling high-definition stream</span>
       </div>
     );
   }
 
   if (hasError || !resolvedSrc) {
     return (
-      <div className={`aspect-video w-full rounded-2xl bg-gray-900 border border-gray-800 flex flex-col items-center justify-center text-gray-400 p-4 ${className}`}>
-        <p className="text-xs font-semibold text-gray-300">Video wave is processing</p>
-        <span className="text-[10px] text-gray-500 mt-1">Ready for playback soon</span>
+      <div className={`aspect-video w-full rounded-2xl bg-slate-100 border border-slate-200 flex flex-col items-center justify-center text-slate-500 p-4 ${className}`}>
+        <p className="text-xs font-bold text-slate-700">Video stream unavailable</p>
+        <span className="text-[10px] text-slate-500 mt-1">Re-upload or refresh to view</span>
       </div>
     );
   }
@@ -207,12 +209,13 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
   return (
     <div
       ref={containerRef}
-      className={`relative aspect-video w-full rounded-2xl overflow-hidden bg-black group select-none shadow-md ${className}`}
+      className={`relative aspect-video w-full rounded-2xl overflow-hidden bg-slate-950 group select-none shadow-sm border border-slate-200/80 ${className}`}
     >
       {/* HTML5 Video element with inline support */}
       <video
         ref={videoRef}
         src={resolvedSrc}
+        poster={thumbnailUrl}
         playsInline
         webkit-playsinline="true"
         preload="metadata"
@@ -223,7 +226,7 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
         onPlay={() => setIsPlaying(true)}
         onPause={() => setIsPlaying(false)}
         onClick={togglePlay}
-        className="w-full h-full object-contain cursor-pointer bg-black"
+        className="w-full h-full object-contain cursor-pointer bg-slate-950"
       />
 
       {/* Floating Big Play Button when paused */}

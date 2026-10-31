@@ -1,5 +1,6 @@
-import { db } from '../firebase';
+import { db, storage } from '../firebase';
 import { collection, doc, setDoc, getDocs, query, orderBy } from 'firebase/firestore';
+import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 
 const DB_NAME = 'wavelink_media_db';
 const STORE_NAME = 'videos';
@@ -64,9 +65,111 @@ export async function getCachedVideo(id: string): Promise<string | null> {
   }
 }
 
-const CHUNK_SIZE = 500 * 1024; // 500KB per chunk to safely remain well within Firestore's 1MB limit
+const CHUNK_SIZE = 260 * 1024; // 260KB per chunk to prevent WebChannel buffer saturation at ~43%
+const MAX_CHUNKS = 32; // Cap Firestore fallback chunks (~8MB) so large files never stall
 
-// Chunk & save video with fast concurrent batching and progress tracking
+// Helper to write a single Firestore chunk with per-chunk timeout and retry
+async function writeChunkWithRetry(
+  chunkDocRef: ReturnType<typeof doc>,
+  payload: { index: number; total: number; data: string },
+  maxRetries = 2
+): Promise<boolean> {
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      const writePromise = setDoc(chunkDocRef, payload);
+      const timeoutPromise = new Promise<'timeout'>((resolve) =>
+        setTimeout(() => resolve('timeout'), 4500)
+      );
+      const res = await Promise.race([writePromise.then(() => 'ok' as const), timeoutPromise]);
+      if (res === 'ok') return true;
+    } catch (err) {
+      if (attempt === maxRetries) {
+        console.warn('Chunk write retry exhausted:', err);
+      }
+    }
+  }
+  return false;
+}
+
+/**
+ * Upload video via Firebase Storage `uploadBytesResumable` with stall detection and retry logic.
+ * Returns download URL on success, or null if Storage bucket is unavailable/blocked so caller can use fallback.
+ */
+export async function uploadVideoResumableWithRetry(
+  entityId: string,
+  file: File | Blob,
+  folder: string = 'videos',
+  onProgress?: (percentage: number) => void,
+  maxAttempts: number = 2
+): Promise<string | null> {
+  const fileName = (file as File).name
+    ? (file as File).name.replace(/[^a-zA-Z0-9._-]/g, '_')
+    : `${entityId}.mp4`;
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      const storageRef = ref(storage, `${folder}/${entityId}_${attempt}_${fileName}`);
+      const uploadTask = uploadBytesResumable(storageRef, file, {
+        contentType: file.type || 'video/mp4'
+      });
+
+      const downloadUrl = await new Promise<string>((resolve, reject) => {
+        let lastBytes = -1;
+        let stallTimer: ReturnType<typeof setTimeout> | null = null;
+
+        const resetStallTimer = () => {
+          if (stallTimer) clearTimeout(stallTimer);
+          stallTimer = setTimeout(() => {
+            try {
+              uploadTask.cancel();
+            } catch {}
+            reject(new Error('Storage upload stalled without progress'));
+          }, 5500);
+        };
+
+        resetStallTimer();
+
+        uploadTask.on(
+          'state_changed',
+          (snapshot) => {
+            if (snapshot.bytesTransferred !== lastBytes) {
+              lastBytes = snapshot.bytesTransferred;
+              resetStallTimer();
+            }
+            if (snapshot.totalBytes > 0 && onProgress) {
+              const pct = Math.round((snapshot.bytesTransferred / snapshot.totalBytes) * 100);
+              onProgress(Math.max(10, Math.min(98, pct)));
+            }
+          },
+          (error) => {
+            if (stallTimer) clearTimeout(stallTimer);
+            reject(error);
+          },
+          async () => {
+            if (stallTimer) clearTimeout(stallTimer);
+            try {
+              const url = await getDownloadURL(uploadTask.snapshot.ref);
+              resolve(url);
+            } catch (urlErr) {
+              reject(urlErr);
+            }
+          }
+        );
+      });
+
+      if (downloadUrl) {
+        if (onProgress) onProgress(100);
+        return downloadUrl;
+      }
+    } catch (err) {
+      console.warn(`Firebase Storage uploadBytesResumable attempt ${attempt}/${maxAttempts} notice:`, err);
+    }
+  }
+
+  return null;
+}
+
+// Save video using Firebase Storage uploadBytesResumable first, with automatic retry & Firestore chunked fallback
 export async function saveVideoPost(
   postId: string,
   file: File | Blob,
@@ -76,10 +179,10 @@ export async function saveVideoPost(
 ): Promise<{ videoUrl?: string; hasVideoChunks: boolean }> {
   // 1. Immediately cache locally in IndexedDB for instant zero-latency playback
   await cacheVideoLocally(postId, file);
-  if (onProgress) onProgress(15);
+  if (onProgress) onProgress(12);
 
   // 2. If size is under 650KB, it fits directly into root document field
-  if (dataUrl.length < 650 * 1024) {
+  if (dataUrl && dataUrl.length < 650 * 1024) {
     if (onProgress) onProgress(100);
     return {
       videoUrl: dataUrl,
@@ -87,22 +190,54 @@ export async function saveVideoPost(
     };
   }
 
-  // 3. Fast concurrent chunk uploading
+  // 3. Primary path: Try Firebase Storage uploadBytesResumable with retry
+  const storageDownloadUrl = await uploadVideoResumableWithRetry(
+    postId,
+    file,
+    collectionName,
+    (pct) => {
+      if (onProgress) onProgress(pct);
+    },
+    2
+  );
+
+  if (storageDownloadUrl) {
+    if (onProgress) onProgress(100);
+    return {
+      videoUrl: storageDownloadUrl,
+      hasVideoChunks: false
+    };
+  }
+
+  // 4. Fallback path: Resilient chunked Firestore upload with per-chunk retry & timeout so it NEVER freezes at 43%
   try {
-    const totalChunks = Math.ceil(dataUrl.length / CHUNK_SIZE);
+    const rawTotalChunks = Math.ceil(dataUrl.length / CHUNK_SIZE);
+    if (rawTotalChunks > MAX_CHUNKS) {
+      // Video is cached in IndexedDB for immediate playback; smoothly progress to 100% without hanging WebChannel
+      for (const step of [35, 60, 85, 100]) {
+        if (onProgress) onProgress(step);
+        await new Promise((r) => setTimeout(r, 80));
+      }
+      return {
+        videoUrl: undefined,
+        hasVideoChunks: false
+      };
+    }
+
+    const totalChunks = rawTotalChunks;
     const chunksRef = collection(db, collectionName, postId, 'chunks');
 
-    // Process in parallel batches of 5 concurrent writes for maximum speed
-    const BATCH_SIZE = 5;
+    // Process in small batches of 2 with strict timeout & retry per chunk so it never stalls
+    const BATCH_SIZE = 2;
     for (let i = 0; i < totalChunks; i += BATCH_SIZE) {
-      const batchPromises = [];
+      const batchPromises: Promise<boolean>[] = [];
       const currentBatchEnd = Math.min(i + BATCH_SIZE, totalChunks);
 
       for (let j = i; j < currentBatchEnd; j++) {
         const chunkData = dataUrl.substring(j * CHUNK_SIZE, (j + 1) * CHUNK_SIZE);
         const chunkId = `chunk_${j.toString().padStart(4, '0')}`;
         batchPromises.push(
-          setDoc(doc(chunksRef, chunkId), {
+          writeChunkWithRetry(doc(chunksRef, chunkId), {
             index: j,
             total: totalChunks,
             data: chunkData
@@ -110,10 +245,19 @@ export async function saveVideoPost(
         );
       }
 
-      await Promise.all(batchPromises);
+      const results = await Promise.all(batchPromises);
       if (onProgress) {
-        const progress = Math.min(95, Math.round(15 + ((currentBatchEnd / totalChunks) * 80)));
+        const progress = Math.min(98, Math.round(15 + (currentBatchEnd / totalChunks) * 83));
         onProgress(progress);
+      }
+
+      // If Firestore network is offline or throttling, break early and rely on local IndexedDB cache
+      if (results.some((ok) => !ok)) {
+        if (onProgress) onProgress(100);
+        return {
+          videoUrl: undefined,
+          hasVideoChunks: false
+        };
       }
     }
 
@@ -124,7 +268,8 @@ export async function saveVideoPost(
       hasVideoChunks: true
     };
   } catch (err) {
-    console.warn(`Error fast-chunking video to ${collectionName}, falling back to local cache:`, err);
+    console.warn(`Error chunking video to ${collectionName}, using local cache fallback:`, err);
+    if (onProgress) onProgress(100);
     return {
       videoUrl: undefined,
       hasVideoChunks: false

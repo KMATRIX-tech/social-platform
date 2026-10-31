@@ -82,11 +82,17 @@ service cloud.firestore {
       }
     }
 
-    // Global Announcements (Admin create/edit, signed-in RSVP)
+    // Global Announcements & Community Notice Board Events
     match /announcements/{announcementId} {
       allow read: if true;
-      allow create, delete: if isAdmin();
-      allow update: if isAdmin() || (isSignedIn() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['rsvpUserIds', 'rsvpCount', 'updatedAt']));
+      allow create: if isSignedIn() && request.resource.data.authorId == request.auth.uid;
+      allow update: if isSignedIn();
+      allow delete: if isSignedIn() && (resource.data.authorId == request.auth.uid || isAdmin());
+
+      match /chunks/{chunkId} {
+        allow read: if true;
+        allow create, update, delete: if isSignedIn();
+      }
     }
 
     // Support Tickets & Complaints
@@ -107,19 +113,20 @@ service cloud.firestore {
       match /messages/{messageId} {
         allow read: if true;
         allow create: if isSignedIn() && request.resource.data.senderId == request.auth.uid;
-        allow update: if isSignedIn() && (resource.data.senderId == request.auth.uid || isAdmin());
+        allow update: if isSignedIn();
         allow delete: if isSignedIn() && (resource.data.senderId == request.auth.uid || isAdmin());
       }
     }
 
-    // Real-Time Channel & Direct Messages
+    // Real-Time Channel & Direct Messages (including lastSeen read receipts)
     match /channels/{channelId} {
-      allow read, write: if isSignedIn();
+      allow read: if true;
+      allow write: if isSignedIn();
 
       match /messages/{messageId} {
         allow read: if true;
         allow create: if isSignedIn() && request.resource.data.senderId == request.auth.uid;
-        allow update: if isSignedIn() && (resource.data.senderId == request.auth.uid || isAdmin());
+        allow update: if isSignedIn();
         allow delete: if isSignedIn() && (resource.data.senderId == request.auth.uid || isAdmin());
       }
     }
@@ -176,6 +183,17 @@ service cloud.firestore {
       allow read: if true;
       allow create, update: if true;
       allow delete: if isAdmin();
+    }
+
+    // Official Coupon & Promo Codes
+    match /coupons/{codeId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /promo_codes/{codeId} {
+      allow read: if true;
+      allow write: if isAdmin();
     }
   }
 }
