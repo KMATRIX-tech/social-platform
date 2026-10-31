@@ -102,21 +102,21 @@ export const SettingsView: React.FC = () => {
   }[] = [
     {
       id: 'light',
-      title: 'Light (selected)',
-      description: 'Clean off-white (#F8F9FA) background, soft light gray card containers, purple accent borders',
+      title: 'Light (Recommended)',
+      description: 'Clean bright background (#F8FAFC / #FFFFFF), soft rounded cards, crisp dark text (#0F172A), and sky blue & emerald accents',
       icon: <Sun size={20} className="text-amber-500" />
     },
     {
       id: 'dark',
       title: 'Dark',
-      description: 'Deep cosmic slate (#0B0F19) with rich contrast and luminous purple highlights',
-      icon: <Moon size={20} className="text-purple-400" />
+      description: 'Deep slate background with soft luminous blue and emerald highlights',
+      icon: <Moon size={20} className="text-[#3B82F6]" />
     },
     {
       id: 'system',
       title: 'Match my device',
       description: 'Automatically synchronizes with your operating system light/dark preference',
-      icon: <Laptop size={20} className="text-blue-500" />
+      icon: <Laptop size={20} className="text-[#10B981]" />
     }
   ];
 
@@ -124,14 +124,14 @@ export const SettingsView: React.FC = () => {
     { id: 'aura-gold', name: 'Golden Aura ✨', ringClass: 'pro-aura-gold ring-4 ring-amber-400' },
     { id: 'neon-pulse', name: 'Cyber Neon ⚡', ringClass: 'pro-aura-neon ring-4 ring-cyan-400' },
     { id: 'emerald-ring', name: 'Emerald Wave 🌊', ringClass: 'pro-aura-emerald ring-4 ring-emerald-400' },
-    { id: 'cosmic-glow', name: 'Cosmic Violet 🔮', ringClass: 'pro-aura-cosmic ring-4 ring-purple-500' },
-    { id: 'none', name: 'Classic Clean', ringClass: 'ring-2 ring-purple-500/20' }
+    { id: 'cosmic-glow', name: 'Sky Glow 💎', ringClass: 'pro-aura-cosmic ring-4 ring-[#3B82F6]' },
+    { id: 'none', name: 'Classic Clean', ringClass: 'ring-2 ring-blue-500/20' }
   ];
 
   const accentColors: { id: ProAccentColor; name: string; bg: string; border: string }[] = [
-    { id: 'purple', name: 'Amethyst Pro', bg: 'bg-purple-600', border: 'border-purple-600' },
+    { id: 'purple', name: 'Sky Blue Pro', bg: 'bg-[#3B82F6]', border: 'border-[#3B82F6]' },
     { id: 'gold', name: 'Royal Gold', bg: 'bg-amber-500', border: 'border-amber-500' },
-    { id: 'emerald', name: 'Emerald Wave', bg: 'bg-emerald-500', border: 'border-emerald-500' },
+    { id: 'emerald', name: 'Emerald Wave', bg: 'bg-[#10B981]', border: 'border-[#10B981]' },
     { id: 'neon', name: 'Cyber Neon', bg: 'bg-cyan-500', border: 'border-cyan-500' },
     { id: 'crimson', name: 'Crimson Velvet', bg: 'bg-rose-600', border: 'border-rose-600' }
   ];
@@ -139,28 +139,28 @@ export const SettingsView: React.FC = () => {
   return (
     <div className="max-w-5xl mx-auto py-6 px-4 sm:px-6 space-y-6">
       {/* Header Banner */}
-      <div className="bg-white dark:bg-[#131927] border border-gray-200 dark:border-gray-800 rounded-3xl p-6 shadow-xs flex items-center justify-between flex-wrap gap-4">
+      <div className="bg-white border border-slate-200/80 rounded-3xl p-6 shadow-[0_4px_24px_-4px_rgba(15,23,42,0.06)] flex items-center justify-between flex-wrap gap-4">
         <div>
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-purple-100 text-purple-700 dark:bg-purple-950 dark:text-purple-300 text-xs font-bold uppercase tracking-wider mb-2">
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-50 text-[#3B82F6] border border-blue-200/60 text-xs font-bold uppercase tracking-wider mb-2">
             <Settings size={13} />
             <span>Settings & Preferences</span>
           </div>
-          <h2 className="text-2xl font-extrabold text-gray-900 dark:text-white">
+          <h2 className="text-2xl font-extrabold text-[#0F172A]">
             Account Preferences & WaveLink Pro
           </h2>
-          <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mt-1">
+          <p className="text-xs sm:text-sm text-slate-500 mt-1">
             Manage your personal profile identity, WaveLink Pro subscription, and support desk inquiries.
           </p>
         </div>
 
         {/* Section Tabs */}
-        <div className="flex rounded-2xl bg-gray-100 dark:bg-gray-800 p-1 text-xs font-semibold overflow-x-auto">
+        <div className="flex rounded-2xl bg-[#F8FAFC] border border-slate-200/80 p-1 text-xs font-semibold overflow-x-auto">
           <button
             onClick={() => setActiveSettingsSection('profile')}
             className={`px-4 py-2 rounded-xl transition flex items-center gap-1.5 whitespace-nowrap ${
               activeSettingsSection === 'profile'
-                ? 'bg-purple-600 text-white shadow-xs'
-                : 'text-gray-600 dark:text-gray-300 hover:text-gray-900'
+                ? 'bg-[#3B82F6] text-white shadow-xs'
+                : 'text-slate-600 hover:text-[#0F172A]'
             }`}
           >
             <User size={14} />
@@ -171,11 +171,11 @@ export const SettingsView: React.FC = () => {
             onClick={() => setActiveSettingsSection('pro')}
             className={`px-4 py-2 rounded-xl transition flex items-center gap-1.5 whitespace-nowrap ${
               activeSettingsSection === 'pro'
-                ? 'bg-gradient-to-r from-amber-500 to-purple-600 text-white shadow-xs'
-                : 'text-gray-600 dark:text-gray-300 hover:text-gray-900'
+                ? 'bg-gradient-to-r from-[#3B82F6] to-[#10B981] text-white shadow-xs'
+                : 'text-slate-600 hover:text-[#0F172A]'
             }`}
           >
-            <Crown size={14} className={isProUser ? 'text-amber-400' : 'text-gray-400'} />
+            <Crown size={14} className={isProUser ? 'text-amber-400' : 'text-slate-400'} />
             <span>WaveLink Pro {isProUser ? '✓' : ''}</span>
           </button>
 
@@ -183,8 +183,8 @@ export const SettingsView: React.FC = () => {
             onClick={() => setActiveSettingsSection('support')}
             className={`px-4 py-2 rounded-xl transition flex items-center gap-1.5 whitespace-nowrap ${
               activeSettingsSection === 'support'
-                ? 'bg-purple-600 text-white shadow-xs'
-                : 'text-gray-600 dark:text-gray-300 hover:text-gray-900'
+                ? 'bg-[#3B82F6] text-white shadow-xs'
+                : 'text-slate-600 hover:text-[#0F172A]'
             }`}
           >
             <HelpCircle size={14} />
@@ -195,8 +195,8 @@ export const SettingsView: React.FC = () => {
             onClick={() => setActiveSettingsSection('legal')}
             className={`px-4 py-2 rounded-xl transition flex items-center gap-1.5 whitespace-nowrap ${
               activeSettingsSection === 'legal'
-                ? 'bg-purple-600 text-white shadow-xs'
-                : 'text-gray-600 dark:text-gray-300 hover:text-gray-900'
+                ? 'bg-[#3B82F6] text-white shadow-xs'
+                : 'text-slate-600 hover:text-[#0F172A]'
             }`}
           >
             <ShieldCheck size={14} />
@@ -211,11 +211,11 @@ export const SettingsView: React.FC = () => {
 
       {activeSettingsSection === 'legal' && (
         <div className="space-y-5">
-          <div className="bg-white dark:bg-[#131927] border border-gray-200 dark:border-gray-800 rounded-3xl p-6 shadow-xs">
-            <h3 className="font-extrabold text-lg text-gray-900 dark:text-white mb-2">
+          <div className="bg-white border border-slate-200/80 rounded-3xl p-6 shadow-[0_4px_24px_-4px_rgba(15,23,42,0.06)]">
+            <h3 className="font-extrabold text-lg text-[#0F172A] mb-2">
               WaveLink Legal &amp; Compliance Center
             </h3>
-            <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mb-6">
+            <p className="text-xs sm:text-sm text-slate-500 mb-6">
               Review our commitments to community safety, data protection under Tanzania data laws, and transparent billing for mobile money services.
             </p>
 
@@ -223,20 +223,20 @@ export const SettingsView: React.FC = () => {
               {/* Privacy Policy */}
               <div
                 onClick={() => setSelectedLegalDoc('privacy')}
-                className="p-5 rounded-2xl bg-purple-500/5 dark:bg-purple-950/20 border border-purple-500/20 hover:border-purple-500/40 transition cursor-pointer group flex flex-col justify-between"
+                className="p-5 rounded-2xl bg-[#F8FAFC] border border-slate-200 hover:border-blue-300 transition cursor-pointer group flex flex-col justify-between"
               >
                 <div>
-                  <div className="w-10 h-10 rounded-xl bg-purple-600/20 text-purple-600 dark:text-purple-400 flex items-center justify-center mb-3">
+                  <div className="w-10 h-10 rounded-xl bg-blue-50 text-[#3B82F6] flex items-center justify-center mb-3">
                     <ShieldCheck size={20} />
                   </div>
-                  <h4 className="font-bold text-sm text-gray-900 dark:text-white mb-1 group-hover:text-purple-600 dark:group-hover:text-purple-400 transition">
+                  <h4 className="font-bold text-sm text-[#0F172A] mb-1 group-hover:text-[#3B82F6] transition">
                     Privacy Policy
                   </h4>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 leading-relaxed">
+                  <p className="text-xs text-slate-500 leading-relaxed">
                     Zero sale of user data, strict peer-to-peer chat confidentiality, and right to account deletion.
                   </p>
                 </div>
-                <span className="text-xs font-bold text-purple-600 dark:text-purple-400 mt-4 flex items-center gap-1">
+                <span className="text-xs font-bold text-[#3B82F6] mt-4 flex items-center gap-1">
                   <span>Read Policy</span>
                   <ArrowRight size={13} />
                 </span>
@@ -245,20 +245,20 @@ export const SettingsView: React.FC = () => {
               {/* Terms of Service */}
               <div
                 onClick={() => setSelectedLegalDoc('terms')}
-                className="p-5 rounded-2xl bg-indigo-500/5 dark:bg-indigo-950/20 border border-indigo-500/20 hover:border-indigo-500/40 transition cursor-pointer group flex flex-col justify-between"
+                className="p-5 rounded-2xl bg-[#F8FAFC] border border-slate-200 hover:border-blue-300 transition cursor-pointer group flex flex-col justify-between"
               >
                 <div>
-                  <div className="w-10 h-10 rounded-xl bg-indigo-600/20 text-indigo-600 dark:text-indigo-400 flex items-center justify-center mb-3">
+                  <div className="w-10 h-10 rounded-xl bg-blue-50 text-[#3B82F6] flex items-center justify-center mb-3">
                     <Shield size={20} />
                   </div>
-                  <h4 className="font-bold text-sm text-gray-900 dark:text-white mb-1 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition">
+                  <h4 className="font-bold text-sm text-[#0F172A] mb-1 group-hover:text-[#3B82F6] transition">
                     Terms of Service
                   </h4>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 leading-relaxed">
+                  <p className="text-xs text-slate-500 leading-relaxed">
                     Community safety guidelines, creator media copyright ownership, and 10% tipping platform fee rules.
                   </p>
                 </div>
-                <span className="text-xs font-bold text-indigo-600 dark:text-indigo-400 mt-4 flex items-center gap-1">
+                <span className="text-xs font-bold text-[#3B82F6] mt-4 flex items-center gap-1">
                   <span>Read Terms</span>
                   <ArrowRight size={13} />
                 </span>
@@ -267,20 +267,20 @@ export const SettingsView: React.FC = () => {
               {/* Refund Policy */}
               <div
                 onClick={() => setSelectedLegalDoc('refund')}
-                className="p-5 rounded-2xl bg-emerald-500/5 dark:bg-emerald-950/20 border border-emerald-500/20 hover:border-emerald-500/40 transition cursor-pointer group flex flex-col justify-between"
+                className="p-5 rounded-2xl bg-[#F8FAFC] border border-slate-200 hover:border-emerald-300 transition cursor-pointer group flex flex-col justify-between"
               >
                 <div>
-                  <div className="w-10 h-10 rounded-xl bg-emerald-600/20 text-emerald-600 dark:text-emerald-400 flex items-center justify-center mb-3">
+                  <div className="w-10 h-10 rounded-xl bg-emerald-50 text-[#10B981] flex items-center justify-center mb-3">
                     <CheckCircle2 size={20} />
                   </div>
-                  <h4 className="font-bold text-sm text-gray-900 dark:text-white mb-1 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition">
+                  <h4 className="font-bold text-sm text-[#0F172A] mb-1 group-hover:text-[#10B981] transition">
                     Refund Policy
                   </h4>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 leading-relaxed">
+                  <p className="text-xs text-slate-500 leading-relaxed">
                     Transparent rules for Airtel Money &amp; AzamPay Pro subscriptions, post boosting, and dispute resolution.
                   </p>
                 </div>
-                <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 mt-4 flex items-center gap-1">
+                <span className="text-xs font-bold text-[#10B981] mt-4 flex items-center gap-1">
                   <span>Read Policy</span>
                   <ArrowRight size={13} />
                 </span>
@@ -301,20 +301,20 @@ export const SettingsView: React.FC = () => {
       {activeSettingsSection === 'pro' && (
         <div className="space-y-6">
           {/* Pro Status Card */}
-          <div className="bg-gradient-to-r from-purple-900 via-indigo-900 to-slate-900 text-white rounded-3xl p-6 sm:p-8 shadow-xl border border-purple-500/30 flex items-center justify-between flex-wrap gap-4">
+          <div className="bg-white text-[#0F172A] rounded-3xl p-6 sm:p-8 shadow-[0_4px_24px_-4px_rgba(15,23,42,0.06)] border border-slate-200/80 flex items-center justify-between flex-wrap gap-4">
             <div>
-              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/20 text-amber-300 ring-1 ring-amber-400/40 text-xs font-bold uppercase tracking-wider mb-2">
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 text-[#10B981] border border-emerald-200/70 text-xs font-bold uppercase tracking-wider mb-2">
                 <Crown size={14} />
                 <span>{isAdmin ? '👑 Administrator Privilege Active' : isProUser ? 'Active Pro VIP Membership' : 'Standard Free Membership'}</span>
               </div>
-              <h3 className="text-2xl sm:text-3xl font-extrabold tracking-tight">
+              <h3 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-[#0F172A]">
                 {isAdmin
                   ? 'All WaveLink Pro Features Unlocked (No Payment Needed)'
                   : isProUser
                   ? 'You are a WaveLink Pro Subscriber'
                   : 'Upgrade to WaveLink Pro'}
               </h3>
-              <p className="text-xs sm:text-sm text-purple-200/80 mt-1 max-w-xl">
+              <p className="text-xs sm:text-sm text-slate-600 mt-1 max-w-xl">
                 {isAdmin
                   ? 'As a platform administrator, all premium privileges (500MB media uploads, 1080p WebRTC calling, Verified Star, Creator Analytics, and custom profile styling) are permanently active without requiring payment.'
                   : isProUser
@@ -325,14 +325,14 @@ export const SettingsView: React.FC = () => {
 
             <div>
               {isAdmin ? (
-                <div className="py-2.5 px-5 rounded-2xl bg-white/20 backdrop-blur-md text-white font-extrabold text-xs sm:text-sm flex items-center gap-2 border border-white/30 shadow-sm">
-                  <ShieldCheck size={16} className="text-emerald-400" />
+                <div className="py-2.5 px-5 rounded-2xl bg-emerald-50 text-[#10B981] font-extrabold text-xs sm:text-sm flex items-center gap-2 border border-emerald-200 shadow-2xs">
+                  <ShieldCheck size={16} className="text-[#10B981]" />
                   <span>Admin Clearance Active</span>
                 </div>
               ) : (
                 <button
                   onClick={() => setIsPaymentModalOpen(true)}
-                  className="py-3 px-6 rounded-2xl bg-gradient-to-r from-amber-500 via-purple-600 to-pink-500 hover:opacity-95 text-white font-extrabold text-xs sm:text-sm flex items-center gap-2 shadow-lg shadow-purple-950/40 transition hover:scale-105"
+                  className="py-3 px-6 rounded-2xl bg-[#3B82F6] hover:bg-blue-600 text-white font-extrabold text-xs sm:text-sm flex items-center gap-2 shadow-md shadow-blue-500/20 transition hover:scale-105 active:scale-95"
                 >
                   <Sparkles size={16} />
                   <span>{isProUser ? 'Manage / Renew Plan' : 'Subscribe via Mobile Money'}</span>
@@ -348,59 +348,59 @@ export const SettingsView: React.FC = () => {
               return (
                 <div
                   key={tier.id}
-                  className={`bg-white dark:bg-[#131927] border-2 rounded-3xl p-6 sm:p-8 shadow-xs flex flex-col justify-between relative transition ${
+                  className={`bg-white border-2 rounded-3xl p-6 sm:p-8 shadow-[0_4px_24px_-4px_rgba(15,23,42,0.06)] flex flex-col justify-between relative transition ${
                     isCurrent
-                      ? 'border-amber-500 ring-4 ring-amber-500/15'
+                      ? 'border-[#10B981] ring-4 ring-emerald-500/15'
                       : tier.popular
-                      ? 'border-purple-600 ring-2 ring-purple-500/20'
-                      : 'border-gray-200 dark:border-gray-800'
+                      ? 'border-[#3B82F6] ring-2 ring-blue-500/15'
+                      : 'border-slate-200/80'
                   }`}
                 >
                   {tier.discountBadge && (
-                    <span className="absolute -top-3 right-6 px-3 py-1 rounded-full text-xs font-extrabold bg-gradient-to-r from-amber-500 to-rose-500 text-white shadow-md">
+                    <span className="absolute -top-3 right-6 px-3 py-1 rounded-full text-xs font-extrabold bg-[#10B981] text-white shadow-sm">
                       {tier.discountBadge}
                     </span>
                   )}
 
                   <div>
-                    <h4 className="text-xl font-extrabold text-gray-900 dark:text-white">
+                    <h4 className="text-xl font-extrabold text-[#0F172A]">
                       {tier.name}
                     </h4>
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                    <p className="text-xs text-slate-500 mt-1">
                       {tier.tagline}
                     </p>
 
                     <div className="mt-4 mb-6">
-                      <span className="text-3xl font-black text-purple-600 dark:text-purple-400">
+                      <span className="text-3xl font-black text-[#3B82F6]">
                         TZS {tier.priceTZS.toLocaleString()}
                       </span>
-                      <span className="text-xs text-gray-400 ml-2 font-medium">
+                      <span className="text-xs text-slate-400 ml-2 font-medium">
                         (${tier.priceUSD} {tier.billingPeriod})
                       </span>
                     </div>
 
-                    <div className="space-y-2.5 pt-4 border-t border-gray-100 dark:border-gray-800">
+                    <div className="space-y-2.5 pt-4 border-t border-slate-100">
                       {tier.features.map((feat, idx) => (
-                        <div key={idx} className="flex items-center gap-2.5 text-xs text-gray-700 dark:text-gray-300">
-                          <CheckCircle2 size={15} className="text-purple-600 shrink-0" />
+                        <div key={idx} className="flex items-center gap-2.5 text-xs text-slate-700">
+                          <CheckCircle2 size={15} className="text-[#10B981] shrink-0" />
                           <span>{feat}</span>
                         </div>
                       ))}
                     </div>
                   </div>
 
-                  <div className="pt-6 mt-6 border-t border-gray-100 dark:border-gray-800">
+                  <div className="pt-6 mt-6 border-t border-slate-100">
                     {isAdmin ? (
-                      <div className="w-full py-2.5 px-4 rounded-xl text-xs font-bold text-center bg-purple-50 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800">
+                      <div className="w-full py-2.5 px-4 rounded-xl text-xs font-bold text-center bg-blue-50 text-[#3B82F6] border border-blue-200">
                         Included in Admin Clearance
                       </div>
                     ) : (
                       <button
                         onClick={() => setIsPaymentModalOpen(true)}
-                        className={`w-full py-3 px-4 rounded-xl text-xs sm:text-sm font-extrabold flex items-center justify-center gap-2 transition shadow-md ${
+                        className={`w-full py-3 px-4 rounded-2xl text-xs sm:text-sm font-extrabold flex items-center justify-center gap-2 transition shadow-xs ${
                           tier.popular
-                            ? 'bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white shadow-purple-600/25'
-                            : 'bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-900 dark:text-white'
+                            ? 'bg-[#3B82F6] hover:bg-blue-600 text-white shadow-blue-500/20'
+                            : 'bg-[#F8FAFC] hover:bg-blue-50 text-[#0F172A] border border-slate-200'
                         }`}
                       >
                         <CreditCard size={15} />
@@ -418,26 +418,26 @@ export const SettingsView: React.FC = () => {
       {activeSettingsSection === 'profile' && (
         <div className="space-y-6">
           {/* Profile Form */}
-          <div className="bg-white dark:bg-[#131927] border border-gray-200 dark:border-gray-800 rounded-3xl p-6 shadow-xs space-y-4">
+          <div className="bg-white border border-slate-200/80 rounded-3xl p-6 shadow-[0_4px_24px_-4px_rgba(15,23,42,0.06)] space-y-4">
             <div>
-              <h3 className="font-bold text-gray-900 dark:text-white text-base">
+              <h3 className="font-bold text-[#0F172A] text-base">
                 Profile Customizations & Aura Ring
               </h3>
-              <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+              <p className="text-xs text-slate-500 mt-0.5">
                 Update your display name, handle username, bio, and upload custom avatar from your device folders.
               </p>
             </div>
 
             {saveSuccess && (
-              <div className="p-3.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-200 text-xs flex items-center gap-2">
-                <CheckCircle2 size={16} className="text-emerald-500 shrink-0" />
+              <div className="p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-900 text-xs flex items-center gap-2 font-semibold">
+                <CheckCircle2 size={16} className="text-[#10B981] shrink-0" />
                 <span>Profile details successfully updated!</span>
               </div>
             )}
 
             <form onSubmit={handleSaveProfile} className="space-y-5">
               {/* Photo Upload with Border Ring Preview */}
-              <div className="flex items-center gap-5 p-4 rounded-2xl bg-gray-50 dark:bg-gray-800/40 border border-gray-200 dark:border-gray-700">
+              <div className="flex items-center gap-5 p-4 rounded-2xl bg-[#F8FAFC] border border-slate-200">
                 <div className="relative">
                   <img
                     src={
@@ -448,7 +448,7 @@ export const SettingsView: React.FC = () => {
                     className={`w-18 h-18 rounded-full object-cover transition-all ${
                       isProUser && proBorderEffect !== 'none'
                         ? borderOptions.find((b) => b.id === proBorderEffect)?.ringClass
-                        : 'ring-2 ring-purple-500/20'
+                        : 'ring-2 ring-blue-500/20'
                     }`}
                   />
                   {isProUser && (
@@ -459,14 +459,14 @@ export const SettingsView: React.FC = () => {
                 </div>
 
                 <div className="flex-1 space-y-1.5">
-                  <span className="text-xs font-bold text-gray-800 dark:text-gray-200 block">
+                  <span className="text-xs font-bold text-[#0F172A] block">
                     Profile Picture
                   </span>
-                  <p className="text-[11px] text-gray-500">
+                  <p className="text-[11px] text-slate-500">
                     Select an image file from your computer or phone folders.
                   </p>
 
-                  <label className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-purple-50 hover:bg-purple-100 dark:bg-purple-950 dark:hover:bg-purple-900 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800 text-xs font-semibold cursor-pointer transition">
+                  <label className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-blue-50 hover:bg-blue-100 text-[#3B82F6] border border-blue-200 text-xs font-semibold cursor-pointer transition">
                     <Upload size={14} />
                     <span>Choose from Folders</span>
                     <input
@@ -481,10 +481,10 @@ export const SettingsView: React.FC = () => {
 
               {/* Pro Customization: Aura Rings & Accents */}
               {isProUser && (
-                <div className="p-4 rounded-2xl bg-gradient-to-r from-purple-50/70 to-indigo-50/70 dark:from-purple-950/20 dark:to-indigo-950/20 border border-purple-200 dark:border-purple-800/60 space-y-4">
+                <div className="p-4 rounded-2xl bg-[#F8FAFC] border border-blue-200/80 space-y-4">
                   <div className="flex items-center gap-2">
-                    <Crown size={16} className="text-amber-500" />
-                    <h4 className="font-extrabold text-xs sm:text-sm text-gray-900 dark:text-white">
+                    <Crown size={16} className="text-[#10B981]" />
+                    <h4 className="font-extrabold text-xs sm:text-sm text-[#0F172A]">
                       WaveLink Pro Avatar Border Effect
                     </h4>
                   </div>
@@ -499,8 +499,8 @@ export const SettingsView: React.FC = () => {
                           onClick={() => setProBorderEffect(opt.id)}
                           className={`p-2.5 rounded-xl border text-xs font-bold transition flex items-center justify-between ${
                             isSelected
-                              ? 'border-purple-600 bg-white dark:bg-gray-800 text-purple-700 dark:text-purple-300 shadow-xs'
-                              : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-white/50'
+                              ? 'border-[#3B82F6] bg-white text-[#3B82F6] shadow-xs'
+                              : 'border-slate-200 text-slate-600 hover:bg-white'
                           }`}
                         >
                           <span className="truncate">{opt.name}</span>
@@ -512,7 +512,7 @@ export const SettingsView: React.FC = () => {
 
                   {/* Pro Accent Color Themes */}
                   <div className="pt-2">
-                    <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-2">
+                    <label className="block text-xs font-bold text-[#0F172A] mb-2">
                       Pro Profile Accent Theme:
                     </label>
                     <div className="flex items-center gap-3 flex-wrap">
@@ -525,8 +525,8 @@ export const SettingsView: React.FC = () => {
                             onClick={() => setProAccentColor(acc.id)}
                             className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border-2 transition text-xs font-semibold ${
                               isSelected
-                                ? `${acc.border} bg-white dark:bg-gray-800 shadow-xs ring-2 ring-purple-500/20`
-                                : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400'
+                                ? `${acc.border} bg-white shadow-xs ring-2 ring-blue-500/20 text-[#0F172A]`
+                                : 'border-slate-200 text-slate-600'
                             }`}
                           >
                             <span className={`w-3 h-3 rounded-full ${acc.bg}`} />
@@ -541,7 +541,7 @@ export const SettingsView: React.FC = () => {
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">
+                  <label className="block text-xs font-semibold text-[#0F172A] mb-1">
                     Display Name
                   </label>
                   <input
@@ -551,16 +551,16 @@ export const SettingsView: React.FC = () => {
                     onChange={(e) => setDisplayName(e.target.value)}
                     maxLength={80}
                     placeholder="e.g. Keylan Mbilinyi"
-                    className="w-full px-3.5 py-2.5 rounded-xl bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-xs sm:text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-[#F8FAFC] border border-slate-200 text-xs sm:text-sm text-[#0F172A] focus:outline-none focus:ring-2 focus:ring-[#3B82F6]"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">
+                  <label className="block text-xs font-semibold text-[#0F172A] mb-1">
                     Username Handle
                   </label>
                   <div className="relative">
-                    <AtSign className="absolute left-3.5 top-3 text-purple-400" size={15} />
+                    <AtSign className="absolute left-3.5 top-3 text-[#3B82F6]" size={15} />
                     <input
                       type="text"
                       required
@@ -568,14 +568,14 @@ export const SettingsView: React.FC = () => {
                       onChange={(e) => setUsername(`@${e.target.value.replace(/[^a-zA-Z0-9_]/g, '')}`)}
                       maxLength={35}
                       placeholder="username"
-                      className="w-full pl-9 pr-3.5 py-2.5 rounded-xl bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-xs sm:text-sm font-mono text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+                      className="w-full pl-9 pr-3.5 py-2.5 rounded-xl bg-[#F8FAFC] border border-slate-200 text-xs sm:text-sm font-mono text-[#0F172A] focus:outline-none focus:ring-2 focus:ring-[#3B82F6]"
                     />
                   </div>
                 </div>
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">
+                <label className="block text-xs font-semibold text-[#0F172A] mb-1">
                   Bio / Status
                 </label>
                 <textarea
@@ -584,27 +584,27 @@ export const SettingsView: React.FC = () => {
                   onChange={(e) => setBio(e.target.value)}
                   maxLength={280}
                   placeholder="Tell the WaveLink community about yourself..."
-                  className="w-full p-3.5 rounded-xl bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-xs sm:text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500 resize-none"
+                  className="w-full p-3.5 rounded-xl bg-[#F8FAFC] border border-slate-200 text-xs sm:text-sm text-[#0F172A] focus:outline-none focus:ring-2 focus:ring-[#3B82F6] resize-none"
                 />
               </div>
 
               {/* Account ID Display */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3.5 rounded-2xl bg-gray-50/70 dark:bg-gray-800/40 border border-gray-200/80 dark:border-gray-700 text-xs">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3.5 rounded-2xl bg-[#F8FAFC] border border-slate-200/80 text-xs">
                 <div>
-                  <span className="text-gray-400 block mb-0.5 text-[10px] uppercase font-bold">
+                  <span className="text-slate-400 block mb-0.5 text-[10px] uppercase font-bold">
                     User UID:
                   </span>
-                  <span className="font-mono text-gray-700 dark:text-gray-300 break-all select-all flex items-center gap-1">
-                    <Fingerprint size={12} className="text-purple-500" />
+                  <span className="font-mono text-[#0F172A] break-all select-all flex items-center gap-1">
+                    <Fingerprint size={12} className="text-[#3B82F6]" />
                     {currentUser?.uid}
                   </span>
                 </div>
 
                 <div>
-                  <span className="text-gray-400 block mb-0.5 text-[10px] uppercase font-bold">
+                  <span className="text-slate-400 block mb-0.5 text-[10px] uppercase font-bold">
                     Email Address:
                   </span>
-                  <span className="font-mono text-gray-700 dark:text-gray-300 break-all">
+                  <span className="font-mono text-[#0F172A] break-all">
                     {currentUser?.email}
                   </span>
                 </div>
@@ -612,14 +612,14 @@ export const SettingsView: React.FC = () => {
 
               <div className="flex items-center justify-between pt-2 flex-wrap gap-3">
                 <div className="flex items-center gap-2">
-                  <span className="text-xs text-gray-500">Live Preview:</span>
+                  <span className="text-xs text-slate-500">Live Preview:</span>
                   <CrystalBadge
                     email={currentUser?.email}
                     name={displayName || 'You'}
                     isPro={isProUser}
                     size="sm"
                   />
-                  <span className="text-xs font-mono text-purple-600 dark:text-purple-400">
+                  <span className="text-xs font-mono text-[#3B82F6] font-semibold">
                     {username}
                   </span>
                 </div>
@@ -627,7 +627,7 @@ export const SettingsView: React.FC = () => {
                 <button
                   type="submit"
                   disabled={isSaving}
-                  className="px-6 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-semibold text-xs sm:text-sm flex items-center gap-2 shadow-md shadow-purple-600/30 transition disabled:opacity-50"
+                  className="px-6 py-2.5 rounded-2xl bg-[#3B82F6] hover:bg-blue-600 text-white font-bold text-xs sm:text-sm flex items-center gap-2 shadow-sm shadow-blue-500/20 active:scale-95 transition disabled:opacity-50"
                 >
                   <Save size={15} />
                   <span>{isSaving ? 'Saving changes...' : 'Save Profile Changes'}</span>
@@ -636,14 +636,14 @@ export const SettingsView: React.FC = () => {
             </form>
           </div>
 
-          {/* Theme Mode Box: Light default (#F8F9FA) with Instant switching */}
-          <div className="bg-white dark:bg-[#131927] border border-gray-200 dark:border-gray-800 rounded-3xl p-6 shadow-xs space-y-4">
+          {/* Theme Mode Box: Light default (#F8FAFC) with Instant switching */}
+          <div className="bg-white border border-slate-200/80 rounded-3xl p-6 shadow-[0_4px_24px_-4px_rgba(15,23,42,0.06)] space-y-4">
             <div>
-              <h3 className="font-bold text-gray-900 dark:text-white text-base">
+              <h3 className="font-bold text-[#0F172A] text-base">
                 Appearance & Theme Mode
               </h3>
-              <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                Choose your preferred styling mode. Light mode applies the signature #F8F9FA off-white aesthetic.
+              <p className="text-xs text-slate-500 mt-0.5">
+                Choose your preferred styling mode. Light mode applies the signature #F8FAFC / #FFFFFF bright aesthetic.
               </p>
             </div>
 
@@ -657,31 +657,31 @@ export const SettingsView: React.FC = () => {
                     onClick={() => setTheme(opt.id)}
                     className={`cursor-pointer rounded-2xl p-5 border-2 transition-all relative flex flex-col justify-between ${
                       isSelected
-                        ? 'border-purple-600 bg-purple-50/60 dark:bg-purple-950/30 ring-2 ring-purple-500/20 shadow-md shadow-purple-600/10'
-                        : 'border-gray-200 dark:border-gray-700/80 hover:border-purple-300 dark:hover:border-purple-800 bg-gray-50/50 dark:bg-gray-800/40'
+                        ? 'border-[#3B82F6] bg-blue-50/40 ring-2 ring-blue-500/15 shadow-sm'
+                        : 'border-slate-200 hover:border-blue-300 bg-[#F8FAFC]'
                     }`}
                   >
                     <div>
                       <div className="flex items-center justify-between mb-3">
-                        <div className="p-2 rounded-xl bg-white dark:bg-gray-800 shadow-2xs">
+                        <div className="p-2 rounded-xl bg-white shadow-2xs border border-slate-100">
                           {opt.icon}
                         </div>
                         {isSelected && (
-                          <span className="w-5 h-5 rounded-full bg-purple-600 text-white flex items-center justify-center">
+                          <span className="w-5 h-5 rounded-full bg-[#3B82F6] text-white flex items-center justify-center">
                             <Check size={12} />
                           </span>
                         )}
                       </div>
 
-                      <h4 className="font-bold text-sm text-gray-900 dark:text-white mb-1">
+                      <h4 className="font-bold text-sm text-[#0F172A] mb-1">
                         {opt.title}
                       </h4>
-                      <p className="text-xs text-gray-500 dark:text-gray-400 leading-relaxed">
+                      <p className="text-xs text-slate-500 leading-relaxed">
                         {opt.description}
                       </p>
                     </div>
 
-                    <div className="mt-4 pt-3 border-t border-gray-100 dark:border-gray-800/80 flex items-center justify-between text-[11px] font-semibold text-purple-600 dark:text-purple-400">
+                    <div className="mt-4 pt-3 border-t border-slate-200/60 flex items-center justify-between text-[11px] font-semibold text-[#3B82F6]">
                       <span>{isSelected ? 'Active Mode' : 'Click to select'}</span>
                     </div>
                   </div>

@@ -30,8 +30,24 @@ export interface UserProfile {
   proBadge?: 'verified' | 'vip' | 'creator' | 'founder';
   proBorderEffect?: ProBorderEffect;
   proAccentColor?: ProAccentColor;
+  isOnline?: boolean;
+  lastSeenAt?: string;
   createdAt: string;
   updatedAt?: string;
+}
+
+export type ReactionType = 'like' | 'heart' | 'fire';
+
+export interface PostReactions {
+  like?: string[];
+  heart?: string[];
+  fire?: string[];
+}
+
+export interface PostReactionCounts {
+  like?: number;
+  heart?: number;
+  fire?: number;
 }
 
 export interface Post {
@@ -55,6 +71,8 @@ export interface Post {
   songAlbumName?: string;
   likes: string[]; // user IDs
   likesCount: number;
+  reactions?: PostReactions;
+  reactionCounts?: PostReactionCounts;
   commentsCount: number;
   savesCount?: number;
   viewsCount?: number;

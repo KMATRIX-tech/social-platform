@@ -308,22 +308,33 @@ export async function rejectPaymentRequest(
 export async function recordSystemDomain(rawDomain?: string): Promise<void> {
   try {
     if (typeof window === 'undefined') return;
-    const domain = rawDomain || window.location.hostname;
-    if (!domain || domain === 'localhost' || domain === '127.0.0.1') return;
+    const currentHost = rawDomain || window.location.hostname;
+    const domainsToRegister = Array.from(
+      new Set(
+        [
+          currentHost,
+          'wavelink-online.netlify.app',
+          'wavelink-social.netlify.app'
+        ].filter((d) => Boolean(d) && d !== 'localhost' && d !== '127.0.0.1')
+      )
+    );
 
-    const domainKey = domain.replace(/[^a-zA-Z0-9_-]/g, '_');
-    const docRef = doc(db, 'system_domains', domainKey);
     const now = new Date().toISOString();
 
-    const payload = cleanFirestoreData({
-      id: domainKey,
-      domain,
-      url: window.location.origin,
-      status: 'active',
-      lastSeenAt: now
-    });
-
-    await setDoc(docRef, payload, { merge: true });
+    await Promise.allSettled(
+      domainsToRegister.map((domain) => {
+        const domainKey = domain.replace(/[^a-zA-Z0-9_-]/g, '_');
+        const docRef = doc(db, 'system_domains', domainKey);
+        const payload = cleanFirestoreData({
+          id: domainKey,
+          domain,
+          url: domain === currentHost ? window.location.origin : `https://${domain}`,
+          status: 'active',
+          lastSeenAt: now
+        });
+        return setDoc(docRef, payload, { merge: true });
+      })
+    );
   } catch (e) {
     // Non-blocking: Silently handle so app never throws or breaks
     console.debug('System domain check completed');

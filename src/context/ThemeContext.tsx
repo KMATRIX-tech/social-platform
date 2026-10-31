@@ -9,10 +9,12 @@ interface ThemeContextType {
 
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
+const THEME_STORAGE_KEY = 'wavelink_theme_light_v2';
+
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [theme, setThemeState] = useState<ThemeMode>(() => {
-    const saved = localStorage.getItem('wavelink_theme') as ThemeMode;
-    return saved || 'light'; // Default to "Light (selected)"
+    const saved = localStorage.getItem(THEME_STORAGE_KEY) as ThemeMode;
+    return saved || 'light'; // Default to clean Light Theme (#F8FAFC / #FFFFFF)
   });
 
   const [isDark, setIsDark] = useState<boolean>(false);
@@ -27,7 +29,6 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     } else if (theme === 'light') {
       effectiveDark = false;
     } else {
-      // system / match my device
       effectiveDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
     }
 
@@ -44,10 +45,13 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
       body?.classList.remove('dark');
       root.style.backgroundColor = '#F8FAFC';
       root.style.colorScheme = 'light';
-      if (body) body.style.backgroundColor = '#F8FAFC';
+      if (body) {
+        body.style.backgroundColor = '#F8FAFC';
+        body.style.color = '#0F172A';
+      }
     }
 
-    localStorage.setItem('wavelink_theme', theme);
+    localStorage.setItem(THEME_STORAGE_KEY, theme);
   }, [theme]);
 
   // Listen for system changes if mode is 'system'
@@ -67,9 +71,12 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
       } else {
         root.classList.remove('dark');
         body?.classList.remove('dark');
-        root.style.backgroundColor = '#F8F9FA';
+        root.style.backgroundColor = '#F8FAFC';
         root.style.colorScheme = 'light';
-        if (body) body.style.backgroundColor = '#F8F9FA';
+        if (body) {
+          body.style.backgroundColor = '#F8FAFC';
+          body.style.color = '#0F172A';
+        }
       }
     };
     mediaQuery.addEventListener('change', handler);

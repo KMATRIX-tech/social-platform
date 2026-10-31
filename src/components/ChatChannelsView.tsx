@@ -133,15 +133,16 @@ export const ChatChannelsView: React.FC<ChatChannelsViewProps> = ({ onOpenCall, 
 
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
 
-  // 1. Load registered users
+  // 1. Real-time listener for registered users / online members
   useEffect(() => {
-    const fetchMembers = async () => {
-      try {
-        const snap = await getDocs(collection(db, 'users'));
+    const usersQuery = query(collection(db, 'users'), orderBy('createdAt', 'desc'));
+    const unsub = onSnapshot(
+      usersQuery,
+      (snap) => {
         const list: UserProfile[] = [];
         snap.forEach((d) => {
           if (d.id !== currentUser?.uid) {
-            list.push(d.data() as UserProfile);
+            list.push({ id: d.id, ...d.data() } as UserProfile);
           }
         });
         setMembers(list);
@@ -153,12 +154,22 @@ export const ChatChannelsView: React.FC<ChatChannelsViewProps> = ({ onOpenCall, 
               ? `dm_${currentUser.uid}_${initialTargetUserId}`
               : `dm_${initialTargetUserId}_${currentUser.uid}`;
           setActiveChannel(dmId);
+        } else if (currentUser?.uid && list.length > 0) {
+          // Ensure a default conversation is selected if none is active
+          setActiveChannel((prev) => {
+            if (prev) return prev;
+            const firstTarget = list[0];
+            return currentUser.uid < firstTarget.id
+              ? `dm_${currentUser.uid}_${firstTarget.id}`
+              : `dm_${firstTarget.id}_${currentUser.uid}`;
+          });
         }
-      } catch (e) {
-        console.error('Failed to load members for chat:', e);
+      },
+      (e) => {
+        console.warn('Chat members listener notice:', e);
       }
-    };
-    fetchMembers();
+    );
+    return () => unsub();
   }, [currentUser?.uid, initialTargetUserId]);
 
   // 2. Real-time listener for user-created groups
@@ -173,7 +184,7 @@ export const ChatChannelsView: React.FC<ChatChannelsViewProps> = ({ onOpenCall, 
         });
         setGroups(list);
 
-        // If active channel not set yet, select the first group or DM
+        // If active channel not set yet, select the first group
         setActiveChannel((prev) => {
           if (prev) return prev;
           if (list.length > 0) return list[0].id;
@@ -181,12 +192,12 @@ export const ChatChannelsView: React.FC<ChatChannelsViewProps> = ({ onOpenCall, 
         });
       },
       (err) => {
-        handleFirestoreError(err, OperationType.LIST, 'groups');
+        console.warn('Groups listener notice:', err);
       }
     );
 
     return () => unsub();
-  }, []);
+  }, [currentUser?.uid]);
 
   // Determine current active chat item info
   const isDirectMessage = activeChannel.startsWith('dm_');
@@ -229,15 +240,12 @@ export const ChatChannelsView: React.FC<ChatChannelsViewProps> = ({ onOpenCall, 
         }, 100);
       },
       (err) => {
-        const path = isDirectMessage
-          ? `channels/${activeChannel}/messages`
-          : `groups/${activeChannel}/messages`;
-        handleFirestoreError(err, OperationType.LIST, path);
+        console.warn('Chat messages listener notice:', err);
       }
     );
 
     return () => unsub();
-  }, [activeChannel, isDirectMessage]);
+  }, [activeChannel, isDirectMessage, currentUser?.uid]);
 
   // Handle image or video file upload in chat with client compression
   const handleChatFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -700,7 +708,7 @@ export const ChatChannelsView: React.FC<ChatChannelsViewProps> = ({ onOpenCall, 
                     </p>
                     <button
                       onClick={() => setIsCreateGroupOpen(true)}
-                      className="text-xs text-purple-600 dark:text-purple-400 font-bold hover:underline inline-flex items-center gap-1"
+                      className="text-xs text-blue-600 dark:text-blue-400 font-bold hover:underline inline-flex items-center gap-1"
                     >
                       <Plus size={12} />
                       <span>Create the first group</span>
@@ -722,7 +730,7 @@ export const ChatChannelsView: React.FC<ChatChannelsViewProps> = ({ onOpenCall, 
                         }}
                         className={`w-full flex items-center gap-3 p-2.5 rounded-2xl text-left transition relative group ${
                           isActive
-                            ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-md shadow-purple-900/20'
+                            ? 'bg-gradient-to-r from-blue-600 to-emerald-600 text-white shadow-md shadow-blue-500/20'
                             : 'text-gray-700 dark:text-gray-200 hover:bg-white dark:hover:bg-gray-800/80 border border-transparent hover:border-gray-200/80 dark:hover:border-gray-800'
                         }`}
                       >
@@ -732,7 +740,7 @@ export const ChatChannelsView: React.FC<ChatChannelsViewProps> = ({ onOpenCall, 
                             src={group.logoUrl || PRESET_LOGOS[0].url}
                             alt={group.name}
                             className={`w-10 h-10 rounded-xl object-cover ring-2 ${
-                              isActive ? 'ring-white/40' : 'ring-purple-500/20'
+                              isActive ? 'ring-white/40' : 'ring-blue-500/20'
                             }`}
                           />
                           {isGrpAdmin && (
@@ -804,7 +812,7 @@ export const ChatChannelsView: React.FC<ChatChannelsViewProps> = ({ onOpenCall, 
                         }}
                         className={`w-full flex items-center gap-3 p-2.5 rounded-2xl text-left transition ${
                           isActive
-                            ? 'bg-purple-600 text-white shadow-md'
+                            ? 'bg-blue-600 text-white shadow-md shadow-blue-500/20'
                             : 'text-gray-700 dark:text-gray-200 hover:bg-white dark:hover:bg-gray-800/80 border border-transparent hover:border-gray-200/80 dark:hover:border-gray-800'
                         }`}
                       >
@@ -814,7 +822,7 @@ export const ChatChannelsView: React.FC<ChatChannelsViewProps> = ({ onOpenCall, 
                             `https://api.dicebear.com/7.x/shapes/svg?seed=${member.id}`
                           }
                           alt={member.displayName}
-                          className="w-9 h-9 rounded-full object-cover ring-2 ring-purple-500/20 shrink-0"
+                          className="w-9 h-9 rounded-full object-cover ring-2 ring-blue-500/20 shrink-0"
                         />
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center justify-between gap-1">
@@ -837,7 +845,7 @@ export const ChatChannelsView: React.FC<ChatChannelsViewProps> = ({ onOpenCall, 
                               <span
                                 className={`text-[9px] px-1.5 py-0.5 rounded-full shrink-0 ${
                                   isActive
-                                    ? 'bg-purple-700 text-purple-200'
+                                    ? 'bg-blue-700 text-blue-100'
                                     : 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-semibold'
                                 }`}
                               >
@@ -1050,7 +1058,7 @@ export const ChatChannelsView: React.FC<ChatChannelsViewProps> = ({ onOpenCall, 
                         `https://api.dicebear.com/7.x/shapes/svg?seed=${msg.senderId}`
                       }
                       alt={msg.senderName}
-                      className="w-8 h-8 rounded-full object-cover ring-1 ring-purple-500/20 shrink-0 mt-1"
+                      className="w-8 h-8 rounded-full object-cover ring-1 ring-blue-500/20 shrink-0 mt-1"
                     />
 
                     {/* Message Bubble Body */}
@@ -1080,11 +1088,11 @@ export const ChatChannelsView: React.FC<ChatChannelsViewProps> = ({ onOpenCall, 
                         <div
                           className={`text-[11px] p-2 rounded-xl border-l-2 mb-1 ${
                             isOwn
-                              ? 'bg-purple-700/30 border-purple-300 text-purple-100'
-                              : 'bg-gray-100 dark:bg-gray-800 border-purple-500 text-gray-600 dark:text-gray-300'
+                              ? 'bg-blue-700/30 border-blue-300 text-blue-100'
+                              : 'bg-slate-100 dark:bg-gray-800 border-blue-500 text-slate-700 dark:text-gray-300'
                           }`}
                         >
-                          <span className="font-bold block text-[10px] text-purple-400">
+                          <span className="font-bold block text-[10px] text-blue-400">
                             Replying to {msg.replyToSenderName || 'message'}:
                           </span>
                           <span className="truncate block">{msg.replyToText}</span>
@@ -1097,8 +1105,8 @@ export const ChatChannelsView: React.FC<ChatChannelsViewProps> = ({ onOpenCall, 
                           msg.isDeleted
                             ? 'italic bg-gray-100 dark:bg-gray-800 text-gray-400'
                             : isOwn
-                            ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-tr-none shadow-sm'
-                            : 'bg-white dark:bg-gray-800/90 text-gray-800 dark:text-gray-200 rounded-tl-none border border-gray-100 dark:border-gray-700/60 shadow-xs'
+                            ? 'bg-gradient-to-r from-blue-600 to-emerald-600 text-white rounded-tr-none shadow-sm shadow-blue-500/20'
+                            : 'bg-white dark:bg-gray-800/90 text-slate-800 dark:text-gray-200 rounded-tl-none border border-slate-200/80 dark:border-gray-700/60 shadow-xs'
                         }`}
                       >
                         {isEditing ? (
@@ -1118,7 +1126,7 @@ export const ChatChannelsView: React.FC<ChatChannelsViewProps> = ({ onOpenCall, 
                               </button>
                               <button
                                 onClick={() => handleSaveEdit(msg.id)}
-                                className="px-2 py-1 rounded bg-white text-purple-700 font-bold"
+                                className="px-2 py-1 rounded bg-white text-blue-700 font-bold"
                               >
                                 Save
                               </button>
@@ -1399,14 +1407,14 @@ export const ChatChannelsView: React.FC<ChatChannelsViewProps> = ({ onOpenCall, 
                     ? `Message ${directRecipient.displayName}...`
                     : 'Write a message...'
                 }
-                className="flex-1 py-2.5 px-4 rounded-xl bg-gray-50 dark:bg-gray-800/90 border border-gray-200 dark:border-gray-700 text-xs text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                className="flex-1 py-2.5 px-4 rounded-xl bg-slate-50 dark:bg-gray-800/90 border border-slate-200 dark:border-gray-700 text-xs text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
 
               {/* Send Button */}
               <button
                 onClick={() => handleSendMessage()}
                 disabled={!inputText.trim() && !chatMediaUrl}
-                className="p-2.5 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 text-white font-bold disabled:opacity-40 hover:opacity-95 shadow-md shadow-purple-900/20 transition"
+                className="p-2.5 rounded-xl bg-gradient-to-r from-blue-600 to-emerald-600 text-white font-bold disabled:opacity-40 hover:from-blue-500 hover:to-emerald-500 shadow-sm shadow-blue-500/20 active:scale-95 transition"
               >
                 <Send size={16} />
               </button>

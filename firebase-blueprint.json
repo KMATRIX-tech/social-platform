@@ -46,6 +46,8 @@
         "mediaType": { "type": "string", "enum": ["image", "video", "none"] },
         "likes": { "type": "array" },
         "likesCount": { "type": "number" },
+        "reactions": { "type": "object" },
+        "reactionCounts": { "type": "object" },
         "commentsCount": { "type": "number" },
         "savesCount": { "type": "number" },
         "songTitle": { "type": "string" },

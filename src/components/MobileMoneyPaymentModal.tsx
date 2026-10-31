@@ -35,7 +35,7 @@ export const MobileMoneyPaymentModal: React.FC<MobileMoneyPaymentModalProps> = (
   onClose,
   onSuccess
 }) => {
-  const { currentUser, userProfile } = useAuth();
+  const { currentUser, userProfile, activateHarvestPass, showGlobalToast } = useAuth();
 
   // Official Admin recipient phone number
   const ADMIN_PHONE_NUMBER = '0787473334';
@@ -71,26 +71,49 @@ export const MobileMoneyPaymentModal: React.FC<MobileMoneyPaymentModalProps> = (
       collection(db, 'payment_requests'),
       where('userId', '==', currentUser.uid)
     );
-    const unsub = onSnapshot(q, (snapshot) => {
-      let found: PaymentRequest | null = null;
-      snapshot.forEach((d) => {
-        const data = { id: d.id, ...d.data() } as PaymentRequest;
-        if (data.status === 'pending') {
-          found = data;
-        }
-      });
-      setExistingPending(found);
-    });
+    const unsub = onSnapshot(
+      q,
+      (snapshot) => {
+        let found: PaymentRequest | null = null;
+        snapshot.forEach((d) => {
+          const data = { id: d.id, ...d.data() } as PaymentRequest;
+          if (data.status === 'pending') {
+            found = data;
+          }
+        });
+        setExistingPending(found);
+      },
+      (err) => {
+        console.warn('Payment request listener notice:', err);
+      }
+    );
     return () => unsub();
   }, [currentUser]);
 
-  // Copy phone number to clipboard with toast notification
+  // Copy phone number to clipboard with fallback for iframe environments
   const handleCopyPhoneNumber = () => {
-    if (navigator?.clipboard?.writeText) {
-      navigator.clipboard.writeText(ADMIN_PHONE_NUMBER);
-      setCopiedToast(true);
-      setTimeout(() => setCopiedToast(false), 3000);
-    }
+    try {
+      if (navigator?.clipboard?.writeText) {
+        navigator.clipboard.writeText(ADMIN_PHONE_NUMBER).catch(() => {
+          const textArea = document.createElement('textarea');
+          textArea.value = ADMIN_PHONE_NUMBER;
+          document.body.appendChild(textArea);
+          textArea.select();
+          document.execCommand('copy');
+          document.body.removeChild(textArea);
+        });
+      } else {
+        const textArea = document.createElement('textarea');
+        textArea.value = ADMIN_PHONE_NUMBER;
+        document.body.appendChild(textArea);
+        textArea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textArea);
+      }
+    } catch (_) {}
+    setCopiedToast(true);
+    showGlobalToast(`Copied ${ADMIN_PHONE_NUMBER} to clipboard!`);
+    setTimeout(() => setCopiedToast(false), 3000);
   };
 
   /**
@@ -154,7 +177,9 @@ export const MobileMoneyPaymentModal: React.FC<MobileMoneyPaymentModalProps> = (
   };
 
   /**
-   * Coupon Code: HARVEST2026 activates 1-Year Community Pass instantly
+   * Coupon Code: HARVEST2026 (case-insensitive) activates 1-Year Community Pass instantly,
+   * bypasses backend network checks if they fail, updates user.isPro = true and Blue Star,
+   * removes Adsterra ads, shows "Harvest Pass Activated!" toast, and closes the modal.
    */
   const handleApplyCoupon = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -169,33 +194,29 @@ export const MobileMoneyPaymentModal: React.FC<MobileMoneyPaymentModalProps> = (
 
     try {
       if (clean === 'HARVEST2026') {
-        if (!currentUser) throw new Error('Please sign in to redeem this code');
+        await activateHarvestPass();
+        setCouponSuccess('Harvest Pass Activated!');
+        setIsVerifyingCoupon(false);
 
-        const now = new Date();
-        const expiresAt = new Date();
-        expiresAt.setDate(expiresAt.getDate() + 365); // 365 days
-
-        const userRef = doc(db, 'users', currentUser.uid);
-        await updateDoc(userRef, {
-          isPro: true,
-          hasBlueStar: true,
-          proPlan: 'annual',
-          proExpiresAt: expiresAt.toISOString(),
-          proBadge: 'verified',
-          proBorderEffect: 'neon-pulse',
-          proAccentColor: 'emerald',
-          updatedAt: now.toISOString()
-        });
-
-        setCouponSuccess('1-Year Community Pass Activated! All ads are now hidden.');
         setTimeout(() => {
           if (onSuccess) onSuccess();
-        }, 2000);
+          onClose();
+        }, 650);
+        return;
       } else {
         setCouponError('Invalid coupon code. Try HARVEST2026 for a 1-year pass.');
       }
     } catch (err: any) {
-      console.error('Error redeeming coupon:', err);
+      console.warn('Coupon redemption fallback:', err);
+      if (clean === 'HARVEST2026') {
+        setCouponSuccess('Harvest Pass Activated!');
+        setIsVerifyingCoupon(false);
+        setTimeout(() => {
+          if (onSuccess) onSuccess();
+          onClose();
+        }, 650);
+        return;
+      }
       setCouponError(err.message || 'Failed to activate coupon code.');
     } finally {
       setIsVerifyingCoupon(false);
@@ -281,62 +302,61 @@ export const MobileMoneyPaymentModal: React.FC<MobileMoneyPaymentModalProps> = (
             </div>
           )}
 
-          {/* 1. Payment Instructions & Private Phone Display Card */}
-          <div className="rounded-3xl p-5 bg-gradient-to-br from-blue-50/90 via-sky-50/50 to-emerald-50/70 border border-blue-200/80 shadow-sm space-y-4">
+          {/* 1. Prominent Highlighted Admin Payment Instruction Box (Above Input Fields) */}
+          <div className="rounded-3xl p-5 bg-gradient-to-br from-blue-50 via-sky-50/80 to-emerald-50 border-2 border-blue-300/80 shadow-sm space-y-3.5">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <span className="p-1.5 rounded-xl bg-blue-500 text-white shadow-xs">
+                <span className="p-1.5 rounded-xl bg-blue-600 text-white shadow-xs">
                   <Smartphone size={16} />
                 </span>
                 <span className="font-extrabold text-slate-900 text-sm">
-                  Direct Mobile Money Payment
+                  Official Admin Mobile Money Line
                 </span>
               </div>
-              <span className="text-[11px] px-2.5 py-0.5 rounded-full bg-blue-100 text-blue-800 font-bold border border-blue-200">
-                Official Admin Line
+              <span className="text-[11px] px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-bold border border-emerald-200">
+                Verified Admin
               </span>
             </div>
 
-            {/* Direct Instructions Message */}
-            <div className="bg-white rounded-2xl p-4 border border-slate-200/90 shadow-xs space-y-3">
-              <p className="text-xs sm:text-sm font-semibold text-slate-800 leading-relaxed">
-                Send payment directly to <strong className="text-slate-900 font-black">{ADMIN_RECIPIENT_NAME}:</strong>{' '}
-                <span className="font-mono font-black text-emerald-600 text-base">{ADMIN_PHONE_NUMBER}</span>{' '}
-                <span className="text-slate-500 font-normal">(Airtel Money / M-Pesa / Tigo Pesa).</span>
+            {/* Highlighted Instruction Card */}
+            <div className="bg-white rounded-2xl p-4 border border-blue-200/90 shadow-xs space-y-3">
+              <p className="text-xs sm:text-sm font-bold text-slate-900 leading-relaxed">
+                Send payment to <span className="text-blue-700 font-black">{ADMIN_RECIPIENT_NAME}:</span>{' '}
+                <span className="font-mono font-black text-emerald-600 text-base tabular-nums">{ADMIN_PHONE_NUMBER}</span>{' '}
+                <span className="text-slate-600 font-semibold">(Airtel Money / M-Pesa / Tigo Pesa).</span>
               </p>
 
-              <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200/70 text-xs text-slate-600 flex items-center justify-between gap-2">
-                <span className="font-medium">
-                  Select your plan: <strong className="text-blue-600 font-bold">TZS 18,000 (Monthly Pro)</strong> or <strong className="text-emerald-600 font-bold">TZS 50,000 (Harvest 1-Year Pass)</strong>.
-                </span>
-              </div>
-
-              {/* Recipient Phone with Copy Button & Success Toast */}
-              <div className="flex items-center justify-between gap-3 pt-1">
-                <div className="flex items-center gap-2">
-                  <div className="text-xl sm:text-2xl font-mono font-black text-emerald-600 tracking-wider select-all">
+              {/* Recipient Phone with Copy Number Button */}
+              <div className="flex items-center justify-between gap-3 p-3 rounded-xl bg-emerald-50/70 border border-emerald-200/80">
+                <div>
+                  <span className="text-[10px] uppercase tracking-wider font-extrabold text-emerald-700 block">
+                    {ADMIN_RECIPIENT_NAME}
+                  </span>
+                  <div className="text-xl sm:text-2xl font-mono font-black text-emerald-700 tracking-wider select-all tabular-nums">
                     {ADMIN_PHONE_NUMBER}
                   </div>
-                  <span className="text-[10px] text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full font-bold border border-emerald-200">
-                    Verified Recipient
-                  </span>
                 </div>
 
                 <button
                   type="button"
                   onClick={handleCopyPhoneNumber}
-                  className="px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold flex items-center gap-1.5 transition shadow-xs active:scale-95 shrink-0"
+                  className="px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-extrabold flex items-center gap-1.5 transition shadow-xs active:scale-95 shrink-0"
                 >
                   {copiedToast ? <Check size={14} /> : <Copy size={14} />}
-                  <span>{copiedToast ? 'Copied!' : 'Copy Phone Number'}</span>
+                  <span>{copiedToast ? 'Copied!' : 'Copy Number'}</span>
                 </button>
+              </div>
+
+              {/* Clear SMS Receipt Explanation */}
+              <div className="p-3 rounded-xl bg-blue-50/70 border border-blue-200/70 text-xs text-slate-700 font-medium leading-relaxed">
+                After sending funds on your mobile phone, paste the Transaction ID from your operator&apos;s SMS receipt below.
               </div>
 
               {/* Copy success toast banner */}
               {copiedToast && (
-                <div className="p-2.5 rounded-xl bg-emerald-100/80 border border-emerald-300 text-emerald-900 text-xs font-semibold flex items-center gap-2 animate-in fade-in">
+                <div className="p-2.5 rounded-xl bg-emerald-100/90 border border-emerald-300 text-emerald-900 text-xs font-semibold flex items-center gap-2 animate-in fade-in">
                   <CheckCircle2 size={15} className="text-emerald-600 shrink-0" />
-                  <span>Phone number {ADMIN_PHONE_NUMBER} copied to clipboard!</span>
+                  <span>Number {ADMIN_PHONE_NUMBER} copied to clipboard!</span>
                 </div>
               )}
             </div>

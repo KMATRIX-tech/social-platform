@@ -180,7 +180,7 @@ export const GlobalSearchBar: React.FC<GlobalSearchBarProps> = ({
           }}
           onFocus={() => setIsOpen(true)}
           placeholder="Search waves, @users, #hashtags..."
-          className="w-full pl-9 pr-14 py-1.5 sm:py-2 rounded-2xl bg-gray-100/90 dark:bg-slate-900/90 border border-gray-200/90 dark:border-slate-800 text-xs sm:text-sm text-gray-900 dark:text-slate-100 placeholder-gray-400 dark:placeholder-slate-500 focus:outline-none focus:border-purple-500/60 focus:ring-2 focus:ring-purple-500/20 transition-all shadow-2xs"
+          className="w-full pl-9 pr-14 py-1.5 sm:py-2 rounded-2xl bg-[#F8FAFC] border border-slate-200/90 text-xs sm:text-sm text-[#0F172A] placeholder-slate-400 focus:outline-none focus:bg-white focus:border-[#3B82F6] focus:ring-2 focus:ring-blue-500/15 transition-all shadow-2xs"
         />
 
         <div className="absolute right-2.5 flex items-center gap-1">
@@ -190,13 +190,13 @@ export const GlobalSearchBar: React.FC<GlobalSearchBarProps> = ({
                 setSearchTerm('');
                 inputRef.current?.focus();
               }}
-              className="p-1 rounded-full text-gray-400 hover:text-gray-600 dark:hover:text-white transition"
+              className="p-1 rounded-full text-slate-400 hover:text-[#0F172A] transition"
               title="Clear search"
             >
               <X size={14} />
             </button>
           ) : (
-            <kbd className="hidden sm:inline-flex items-center px-1.5 py-0.5 text-[10px] font-mono text-gray-400 dark:text-slate-500 bg-gray-200/60 dark:bg-slate-800/80 rounded border border-gray-300/40 dark:border-slate-700">
+            <kbd className="hidden sm:inline-flex items-center px-1.5 py-0.5 text-[10px] font-mono text-slate-400 bg-white rounded border border-slate-200">
               /
             </kbd>
           )}
@@ -205,15 +205,15 @@ export const GlobalSearchBar: React.FC<GlobalSearchBarProps> = ({
 
       {/* Floating Results Dropdown Popover */}
       {isOpen && (
-        <div className="absolute top-full left-0 right-0 mt-2 z-50 rounded-3xl bg-white/95 dark:bg-[#0e1424]/95 backdrop-blur-xl border border-gray-200 dark:border-purple-500/30 shadow-2xl overflow-hidden animate-in fade-in">
+        <div className="absolute top-full left-0 right-0 mt-2 z-50 rounded-3xl bg-white border border-slate-200/80 shadow-[0_12px_40px_-8px_rgba(15,23,42,0.12)] overflow-hidden animate-in fade-in">
           {/* Category Tabs */}
-          <div className="flex border-b border-gray-100 dark:border-slate-800/80 bg-gray-50/80 dark:bg-slate-950/40 px-3 pt-2 gap-1 text-[11px] font-semibold overflow-x-auto scrollbar-none">
+          <div className="flex border-b border-slate-100 bg-[#F8FAFC] px-3 pt-2 gap-1 text-[11px] font-semibold overflow-x-auto scrollbar-none">
             <button
               onClick={() => setActiveCategory('all')}
               className={`px-3 py-1.5 rounded-t-xl transition whitespace-nowrap flex items-center gap-1.5 border-b-2 ${
                 activeCategory === 'all'
-                  ? 'border-purple-500 text-purple-600 dark:text-purple-300 font-bold bg-white dark:bg-slate-900/60'
-                  : 'border-transparent text-gray-500 hover:text-gray-800 dark:hover:text-slate-200'
+                  ? 'border-[#3B82F6] text-[#3B82F6] font-bold bg-white'
+                  : 'border-transparent text-slate-500 hover:text-[#0F172A]'
               }`}
             >
               <span>All Results</span>
@@ -223,8 +223,8 @@ export const GlobalSearchBar: React.FC<GlobalSearchBarProps> = ({
               onClick={() => setActiveCategory('users')}
               className={`px-3 py-1.5 rounded-t-xl transition whitespace-nowrap flex items-center gap-1.5 border-b-2 ${
                 activeCategory === 'users'
-                  ? 'border-purple-500 text-purple-600 dark:text-purple-300 font-bold bg-white dark:bg-slate-900/60'
-                  : 'border-transparent text-gray-500 hover:text-gray-800 dark:hover:text-slate-200'
+                  ? 'border-[#3B82F6] text-[#3B82F6] font-bold bg-white'
+                  : 'border-transparent text-slate-500 hover:text-[#0F172A]'
               }`}
             >
               <User size={12} />
@@ -235,8 +235,8 @@ export const GlobalSearchBar: React.FC<GlobalSearchBarProps> = ({
               onClick={() => setActiveCategory('posts')}
               className={`px-3 py-1.5 rounded-t-xl transition whitespace-nowrap flex items-center gap-1.5 border-b-2 ${
                 activeCategory === 'posts'
-                  ? 'border-indigo-500 text-indigo-600 dark:text-indigo-300 font-bold bg-white dark:bg-slate-900/60'
-                  : 'border-transparent text-gray-500 hover:text-gray-800 dark:hover:text-slate-200'
+                  ? 'border-[#10B981] text-[#10B981] font-bold bg-white'
+                  : 'border-transparent text-slate-500 hover:text-[#0F172A]'
               }`}
             >
               <Film size={12} />
@@ -247,8 +247,8 @@ export const GlobalSearchBar: React.FC<GlobalSearchBarProps> = ({
               onClick={() => setActiveCategory('hashtags')}
               className={`px-3 py-1.5 rounded-t-xl transition whitespace-nowrap flex items-center gap-1.5 border-b-2 ${
                 activeCategory === 'hashtags'
-                  ? 'border-pink-500 text-pink-600 dark:text-pink-300 font-bold bg-white dark:bg-slate-900/60'
-                  : 'border-transparent text-gray-500 hover:text-gray-800 dark:hover:text-slate-200'
+                  ? 'border-[#3B82F6] text-[#3B82F6] font-bold bg-white'
+                  : 'border-transparent text-slate-500 hover:text-[#0F172A]'
               }`}
             >
               <Hash size={12} />
@@ -262,7 +262,7 @@ export const GlobalSearchBar: React.FC<GlobalSearchBarProps> = ({
             {/* If query empty: show trending recommendations */}
             {!cleanQuery && (
               <div className="p-3 text-xs">
-                <div className="flex items-center gap-1.5 text-amber-500 dark:text-amber-400 font-bold uppercase tracking-wider text-[10px] mb-2">
+                <div className="flex items-center gap-1.5 text-[#10B981] font-bold uppercase tracking-wider text-[10px] mb-2">
                   <TrendingUp size={13} />
                   <span>Trending on WaveLink</span>
                 </div>
@@ -271,9 +271,9 @@ export const GlobalSearchBar: React.FC<GlobalSearchBarProps> = ({
                     <button
                       key={tag}
                       onClick={() => handleSelectTag(tag)}
-                      className="px-2.5 py-1 rounded-xl bg-purple-50 hover:bg-purple-100 dark:bg-purple-950/40 dark:hover:bg-purple-900/50 text-purple-700 dark:text-purple-300 border border-purple-200/60 dark:border-purple-800/50 text-xs font-semibold flex items-center gap-1 transition active:scale-95"
+                      className="px-2.5 py-1 rounded-xl bg-blue-50/70 hover:bg-blue-100 text-[#3B82F6] border border-blue-200/70 text-xs font-semibold flex items-center gap-1 transition active:scale-95"
                     >
-                      <Hash size={11} className="text-purple-400" />
+                      <Hash size={11} className="text-[#10B981]" />
                       <span>{tag.replace(/^#/, '')}</span>
                     </button>
                   ))}
@@ -283,19 +283,19 @@ export const GlobalSearchBar: React.FC<GlobalSearchBarProps> = ({
 
             {/* No results state */}
             {cleanQuery && totalResults === 0 && (
-              <div className="p-8 text-center text-gray-400 dark:text-slate-500">
-                <Search size={28} className="mx-auto mb-2 opacity-40 text-purple-400" />
-                <p className="text-xs font-medium">No results found for &quot;{cleanQuery}&quot;</p>
-                <p className="text-[11px] text-gray-400 mt-1">Try searching by username, creator name, or #trending tags</p>
+              <div className="p-8 text-center text-slate-400">
+                <Search size={28} className="mx-auto mb-2 opacity-40 text-[#3B82F6]" />
+                <p className="text-xs font-medium text-[#0F172A]">No results found for &quot;{cleanQuery}&quot;</p>
+                <p className="text-[11px] text-slate-400 mt-1">Try searching by username, creator name, or #trending tags</p>
               </div>
             )}
 
             {/* 1. Users Section */}
             {(activeCategory === 'all' || activeCategory === 'users') && matchedUsers.length > 0 && (
               <div className="space-y-1">
-                <div className="px-2 py-1 text-[10px] font-bold text-gray-400 dark:text-slate-500 uppercase tracking-wider flex items-center justify-between">
+                <div className="px-2 py-1 text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center justify-between">
                   <span>Users ({matchedUsers.length})</span>
-                  <button onClick={() => onNavigateTab('directory')} className="text-purple-500 hover:underline">
+                  <button onClick={() => onNavigateTab('directory')} className="text-[#3B82F6] hover:underline">
                     View All
                   </button>
                 </div>
@@ -303,27 +303,27 @@ export const GlobalSearchBar: React.FC<GlobalSearchBarProps> = ({
                   <div
                     key={u.id}
                     onClick={() => handleSelectUser(u)}
-                    className="p-2 rounded-2xl hover:bg-gray-100 dark:hover:bg-slate-800/70 transition cursor-pointer flex items-center justify-between gap-3 group"
+                    className="p-2 rounded-2xl hover:bg-[#F8FAFC] transition cursor-pointer flex items-center justify-between gap-3 group"
                   >
                     <div className="flex items-center gap-2.5 min-w-0">
                       <img
                         src={u.photoURL || `https://api.dicebear.com/7.x/shapes/svg?seed=${u.id}`}
                         alt="Avatar"
-                        className="w-9 h-9 rounded-full object-cover ring-1 ring-purple-500/20 shrink-0"
+                        className="w-9 h-9 rounded-full object-cover ring-1 ring-blue-500/20 shrink-0"
                       />
                       <div className="min-w-0">
                         <div className="flex items-center gap-1.5 truncate">
-                          <span className="font-bold text-xs text-gray-900 dark:text-white truncate">
+                          <span className="font-bold text-xs text-[#0F172A] truncate">
                             {u.displayName}
                           </span>
                           {u.isPro && (
-                            <span className="px-1.5 py-0.2 rounded text-[9px] bg-amber-400/20 text-amber-300 font-extrabold flex items-center gap-0.5">
+                            <span className="px-1.5 py-0.2 rounded text-[9px] bg-emerald-50 text-[#10B981] border border-emerald-200 font-extrabold flex items-center gap-0.5">
                               <Crown size={9} />
                               PRO
                             </span>
                           )}
                         </div>
-                        <span className="text-[11px] text-gray-400 dark:text-slate-400 block truncate font-mono">
+                        <span className="text-[11px] text-slate-400 block truncate font-mono">
                           {u.username || `@${u.email.split('@')[0]}`}
                         </span>
                       </div>
@@ -334,7 +334,7 @@ export const GlobalSearchBar: React.FC<GlobalSearchBarProps> = ({
                           e.stopPropagation();
                           handleSelectUser(u);
                         }}
-                        className="px-2.5 py-1 rounded-xl bg-purple-600 hover:bg-purple-500 text-white text-[11px] font-bold flex items-center gap-1 transition"
+                        className="px-2.5 py-1 rounded-xl bg-[#3B82F6] hover:bg-blue-600 text-white text-[11px] font-bold flex items-center gap-1 transition"
                       >
                         <MessageSquare size={11} />
                         <span>Chat</span>
@@ -347,10 +347,10 @@ export const GlobalSearchBar: React.FC<GlobalSearchBarProps> = ({
 
             {/* 2. Posts Section */}
             {(activeCategory === 'all' || activeCategory === 'posts') && matchedPosts.length > 0 && (
-              <div className="space-y-1 pt-1 border-t border-gray-100 dark:border-slate-800/60">
-                <div className="px-2 py-1 text-[10px] font-bold text-gray-400 dark:text-slate-500 uppercase tracking-wider flex items-center justify-between">
+              <div className="space-y-1 pt-1 border-t border-slate-100">
+                <div className="px-2 py-1 text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center justify-between">
                   <span>Waves &amp; Reels ({matchedPosts.length})</span>
-                  <button onClick={() => onNavigateTab('feed')} className="text-purple-500 hover:underline">
+                  <button onClick={() => onNavigateTab('feed')} className="text-[#3B82F6] hover:underline">
                     Feed
                   </button>
                 </div>
@@ -358,35 +358,35 @@ export const GlobalSearchBar: React.FC<GlobalSearchBarProps> = ({
                   <div
                     key={post.id}
                     onClick={() => handleSelectPost(post)}
-                    className="p-2 rounded-2xl hover:bg-gray-100 dark:hover:bg-slate-800/70 transition cursor-pointer flex items-center justify-between gap-3 group"
+                    className="p-2 rounded-2xl hover:bg-[#F8FAFC] transition cursor-pointer flex items-center justify-between gap-3 group"
                   >
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-1.5 mb-0.5">
-                        <span className="font-bold text-xs text-purple-600 dark:text-purple-400 truncate">
+                        <span className="font-bold text-xs text-[#3B82F6] truncate">
                           {post.authorName}
                         </span>
                         {post.mediaType === 'video' ? (
-                          <span className="px-1.5 py-0.2 rounded text-[9px] bg-pink-500/20 text-pink-300 font-bold flex items-center gap-0.5">
+                          <span className="px-1.5 py-0.2 rounded text-[9px] bg-blue-50 text-[#3B82F6] font-bold flex items-center gap-0.5">
                             <Film size={9} />
                             Reel
                           </span>
                         ) : post.imageUrl ? (
-                          <span className="px-1.5 py-0.2 rounded text-[9px] bg-teal-500/20 text-teal-300 font-bold flex items-center gap-0.5">
+                          <span className="px-1.5 py-0.2 rounded text-[9px] bg-emerald-50 text-[#10B981] font-bold flex items-center gap-0.5">
                             <ImageIcon size={9} />
                             Photo
                           </span>
                         ) : null}
                       </div>
-                      <p className="text-xs text-gray-700 dark:text-slate-300 line-clamp-1 break-words">
+                      <p className="text-xs text-[#0F172A] line-clamp-1 break-words">
                         {post.content}
                       </p>
                     </div>
-                    <div className="flex items-center gap-2 text-gray-400 text-[11px] shrink-0">
+                    <div className="flex items-center gap-2 text-slate-400 text-[11px] shrink-0">
                       <span className="flex items-center gap-0.5">
                         <Heart size={11} className="text-rose-400" />
                         {post.likesCount || 0}
                       </span>
-                      <ArrowRight size={13} className="text-gray-400 group-hover:translate-x-0.5 transition-transform" />
+                      <ArrowRight size={13} className="text-slate-400 group-hover:translate-x-0.5 transition-transform" />
                     </div>
                   </div>
                 ))}
@@ -395,8 +395,8 @@ export const GlobalSearchBar: React.FC<GlobalSearchBarProps> = ({
 
             {/* 3. Hashtags Section */}
             {(activeCategory === 'all' || activeCategory === 'hashtags') && matchedHashtags.length > 0 && (
-              <div className="space-y-1 pt-1 border-t border-gray-100 dark:border-slate-800/60">
-                <div className="px-2 py-1 text-[10px] font-bold text-gray-400 dark:text-slate-500 uppercase tracking-wider">
+              <div className="space-y-1 pt-1 border-t border-slate-100">
+                <div className="px-2 py-1 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
                   <span>Hashtags ({matchedHashtags.length})</span>
                 </div>
                 <div className="flex flex-wrap gap-1.5 px-2">
@@ -404,9 +404,9 @@ export const GlobalSearchBar: React.FC<GlobalSearchBarProps> = ({
                     <button
                       key={tag}
                       onClick={() => handleSelectTag(tag)}
-                      className="px-3 py-1.5 rounded-xl bg-purple-500/10 hover:bg-purple-500/20 text-purple-600 dark:text-purple-300 border border-purple-500/20 text-xs font-semibold flex items-center gap-1.5 transition active:scale-95"
+                      className="px-3 py-1.5 rounded-xl bg-blue-50 hover:bg-blue-100 text-[#3B82F6] border border-blue-200 text-xs font-semibold flex items-center gap-1.5 transition active:scale-95"
                     >
-                      <Hash size={12} className="text-pink-400" />
+                      <Hash size={12} className="text-[#10B981]" />
                       <span>{tag}</span>
                     </button>
                   ))}
@@ -416,7 +416,7 @@ export const GlobalSearchBar: React.FC<GlobalSearchBarProps> = ({
           </div>
 
           {/* Quick Footer */}
-          <div className="p-2.5 bg-gray-50 dark:bg-slate-950/80 border-t border-gray-100 dark:border-slate-800 flex items-center justify-between text-[10px] text-gray-400 dark:text-slate-500">
+          <div className="p-2.5 bg-[#F8FAFC] border-t border-slate-100 flex items-center justify-between text-[10px] text-slate-400">
             <span>Press <strong>Esc</strong> to close</span>
             <span>Global Real-Time Search</span>
           </div>

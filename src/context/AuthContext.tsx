@@ -43,18 +43,42 @@ interface AuthContextType {
   dismissWarning: () => Promise<void>;
   toggleSubAdmin: (targetUserId: string, makeSubAdmin: boolean) => Promise<void>;
   toggleVerifyUser: (targetUserId: string, verify: boolean) => Promise<void>;
+  activateHarvestPass: () => Promise<void>;
+  showGlobalToast: (message: string) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
+
+function hasLocalProPass(uid?: string | null): boolean {
+  try {
+    if (typeof window === 'undefined') return false;
+    if (localStorage.getItem('wavelink_pro_pass') === 'true') return true;
+    if (uid && localStorage.getItem(`wavelink_pro_pass_${uid}`) === 'true') return true;
+    return false;
+  } catch {
+    return false;
+  }
+}
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [currentUser, setCurrentUser] = useState<FirebaseUser | null>(null);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [globalToast, setGlobalToast] = useState<string | null>(null);
+
+  const showGlobalToast = (message: string) => {
+    setGlobalToast(message);
+    setTimeout(() => {
+      setGlobalToast((prev) => (prev === message ? null : prev));
+    }, 4500);
+  };
 
   // Sync profile document in Firestore
   const syncUserProfileDoc = async (user: FirebaseUser, customName?: string, customUsername?: string) => {
     const userDocRef = doc(db, 'users', user.uid);
+    const localPro = hasLocalProPass(user.uid);
+    const nowIso = new Date().toISOString();
+
     try {
       const snap = await getDoc(userDocRef);
       const isOwner = isOwnerEmail(user.email);
@@ -73,18 +97,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           savedPostIds: [],
           role: isOwner ? 'super_admin' : 'user',
           isSubAdmin: false,
-          hasBlueStar: isOwner,
-          isVerifiedByAdmin: isOwner,
-          isPro: isOwner,
-          proBadge: isOwner ? 'founder' : undefined,
-          proBorderEffect: isOwner ? 'aura-gold' : undefined,
-          proAccentColor: isOwner ? 'gold' : undefined,
-          createdAt: new Date().toISOString(),
+          hasBlueStar: isOwner || localPro,
+          isVerifiedByAdmin: isOwner || localPro,
+          isPro: isOwner || localPro,
+          proBadge: isOwner ? 'founder' : (localPro ? 'verified' : undefined),
+          proBorderEffect: isOwner ? 'aura-gold' : (localPro ? 'neon-pulse' : undefined),
+          proAccentColor: isOwner ? 'gold' : (localPro ? 'emerald' : undefined),
+          isOnline: true,
+          lastSeenAt: nowIso,
+          createdAt: nowIso,
         };
         await setDoc(userDocRef, cleanFirestoreData({
           ...initialProfile,
           serverTimestamp: serverTimestamp()
-        }));
+        }), { merge: true });
         setUserProfile(initialProfile);
       } else {
         const data = snap.data() as UserProfile;
@@ -100,30 +126,59 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             proAccentColor: 'gold',
             displayName: data.displayName || 'Keylan Mbilinyi (Platform Owner)',
             username: data.username || '@keylan',
-            savedPostIds: data.savedPostIds || []
+            savedPostIds: data.savedPostIds || [],
+            isOnline: true,
+            lastSeenAt: nowIso
           };
           await setDoc(userDocRef, cleanFirestoreData(ownerProfile), { merge: true });
           setUserProfile(ownerProfile);
         } else {
-          setUserProfile(data);
+          const mergedProfile: UserProfile = {
+            ...data,
+            isPro: Boolean(data.isPro || localPro),
+            hasBlueStar: Boolean(data.hasBlueStar || data.isPro || localPro),
+            proBadge: data.proBadge || (localPro ? 'verified' : undefined),
+            isOnline: true,
+            lastSeenAt: nowIso
+          };
+          setUserProfile(mergedProfile);
+          // Non-blocking presence + pro sync
+          setDoc(
+            userDocRef,
+            cleanFirestoreData({
+              isOnline: true,
+              lastSeenAt: nowIso,
+              ...(localPro ? { isPro: true, hasBlueStar: true, proBadge: 'verified' } : {})
+            }),
+            { merge: true }
+          ).catch(() => {});
         }
       }
     } catch (err) {
-      console.error('Error synchronizing user profile:', err);
+      console.warn('Profile sync notice:', err);
     }
   };
 
   useEffect(() => {
     let unsubscribeDoc: (() => void) | null = null;
+    let presenceInterval: ReturnType<typeof setInterval> | null = null;
 
     const unsubscribeAuth = onAuthStateChanged(auth, async (user) => {
       setCurrentUser(user);
 
       if (user) {
         const isOwner = isOwnerEmail(user.email);
+        const localPro = hasLocalProPass(user.uid);
         const emailPrefix = user.email ? user.email.split('@')[0].toLowerCase().replace(/[^a-z0-9_]/g, '') : 'waver';
+        const nowIso = new Date().toISOString();
 
-        setUserProfile((prev) => prev || ({
+        setUserProfile((prev) => prev ? {
+          ...prev,
+          isPro: Boolean(prev.isPro || isOwner || localPro),
+          hasBlueStar: Boolean(prev.hasBlueStar || prev.isPro || isOwner || localPro),
+          isOnline: true,
+          lastSeenAt: nowIso
+        } : ({
           id: user.uid,
           email: user.email || '',
           username: isOwner ? '@keylan' : `@${emailPrefix}`,
@@ -135,13 +190,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           savedPostIds: [],
           role: isOwner ? 'super_admin' : 'user',
           isSubAdmin: false,
-          hasBlueStar: isOwner,
-          isVerifiedByAdmin: isOwner,
-          isPro: isOwner,
-          proBadge: isOwner ? 'founder' : undefined,
-          proBorderEffect: isOwner ? 'aura-gold' : undefined,
-          proAccentColor: isOwner ? 'gold' : undefined,
-          createdAt: new Date().toISOString()
+          hasBlueStar: isOwner || localPro,
+          isVerifiedByAdmin: isOwner || localPro,
+          isPro: isOwner || localPro,
+          proBadge: isOwner ? 'founder' : (localPro ? 'verified' : undefined),
+          proBorderEffect: isOwner ? 'aura-gold' : (localPro ? 'neon-pulse' : undefined),
+          proAccentColor: isOwner ? 'gold' : (localPro ? 'emerald' : undefined),
+          isOnline: true,
+          lastSeenAt: nowIso,
+          createdAt: nowIso
         }));
         setIsLoading(false);
 
@@ -156,15 +213,33 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           userDocRef,
           (docSnap) => {
             if (docSnap.exists()) {
-              setUserProfile(docSnap.data() as UserProfile);
+              const snapData = docSnap.data() as UserProfile;
+              const currentLocalPro = hasLocalProPass(user.uid);
+              setUserProfile({
+                ...snapData,
+                isPro: Boolean(snapData.isPro || currentLocalPro),
+                hasBlueStar: Boolean(snapData.hasBlueStar || snapData.isPro || currentLocalPro),
+                proBadge: snapData.proBadge || (currentLocalPro ? 'verified' : undefined)
+              });
             }
           },
           (error) => {
             console.warn('Profile snapshot notice:', error);
           }
         );
+
+        // Heartbeat for online status
+        if (presenceInterval) clearInterval(presenceInterval);
+        presenceInterval = setInterval(() => {
+          setDoc(
+            userDocRef,
+            { isOnline: true, lastSeenAt: new Date().toISOString() },
+            { merge: true }
+          ).catch(() => {});
+        }, 60000);
       } else {
         if (unsubscribeDoc) unsubscribeDoc();
+        if (presenceInterval) clearInterval(presenceInterval);
         setUserProfile(null);
         setIsLoading(false);
       }
@@ -173,6 +248,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => {
       unsubscribeAuth();
       if (unsubscribeDoc) unsubscribeDoc();
+      if (presenceInterval) clearInterval(presenceInterval);
     };
   }, []);
 
@@ -438,6 +514,66 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  // Instant Harvest Pass ("HARVEST2026") activation:
+  // Updates local state + localStorage immediately, purges Adsterra ads, adds Blue Star badge,
+  // and syncs to Firestore with a 1.5s timeout so network checks never block or hang.
+  const activateHarvestPass = async () => {
+    const now = new Date();
+    const expiresAt = new Date(now.getTime() + 365 * 24 * 60 * 60 * 1000).toISOString();
+
+    try {
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('wavelink_pro_pass', 'true');
+        if (currentUser?.uid) {
+          localStorage.setItem(`wavelink_pro_pass_${currentUser.uid}`, 'true');
+        }
+      }
+    } catch (_) {}
+
+    const proFields = {
+      isPro: true,
+      hasBlueStar: true,
+      isVerifiedByAdmin: true,
+      proPlan: 'annual' as const,
+      proExpiresAt: expiresAt,
+      proBadge: 'verified' as const,
+      proBorderEffect: 'neon-pulse' as const,
+      proAccentColor: 'emerald' as const,
+      updatedAt: now.toISOString()
+    };
+
+    // 1. Immediately update local state so UI, Blue Star badge, and Adsterra removal react instantaneously
+    setUserProfile((prev) =>
+      prev
+        ? { ...prev, ...proFields }
+        : currentUser
+        ? {
+            id: currentUser.uid,
+            email: currentUser.email || '',
+            displayName: currentUser.displayName || currentUser.email?.split('@')[0] || 'Waver',
+            username: `@${(currentUser.email?.split('@')[0] || 'waver').toLowerCase()}`,
+            status: 'active',
+            isBanned: false,
+            createdAt: now.toISOString(),
+            ...proFields
+          }
+        : null
+    );
+
+    // 2. Show global toast notification ("Harvest Pass Activated!")
+    showGlobalToast('Harvest Pass Activated!');
+
+    // 3. Sync to Firestore with a strict 1.2s timeout fallback so it never hangs on network errors
+    if (currentUser?.uid) {
+      const userRef = doc(db, 'users', currentUser.uid);
+      const writePromise = setDoc(userRef, cleanFirestoreData(proFields), { merge: true }).catch((err) => {
+        console.warn('Firestore Harvest Pass sync fallback:', err);
+      });
+      const timeoutPromise = new Promise<void>((resolve) => setTimeout(resolve, 1200));
+      await Promise.race([writePromise, timeoutPromise]);
+    }
+  };
+
   return (
     <AuthContext.Provider
       value={{
@@ -461,9 +597,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         toggleSavePost,
         dismissWarning,
         toggleSubAdmin,
-        toggleVerifyUser
+        toggleVerifyUser,
+        activateHarvestPass,
+        showGlobalToast
       }}
     >
+      {globalToast && (
+        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[100] px-5 py-3 rounded-2xl bg-emerald-600 text-white font-extrabold text-xs sm:text-sm shadow-xl shadow-emerald-600/30 border border-emerald-400 flex items-center gap-2.5 animate-fade-in">
+          <span className="w-2.5 h-2.5 rounded-full bg-white animate-ping" />
+          <span>{globalToast}</span>
+          <span className="text-[11px] font-semibold bg-white/20 px-2 py-0.5 rounded-full">
+            Blue Star &amp; Ad-Free Active
+          </span>
+        </div>
+      )}
       {children}
     </AuthContext.Provider>
   );

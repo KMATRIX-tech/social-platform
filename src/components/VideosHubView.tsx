@@ -110,23 +110,23 @@ export const VideosHubView: React.FC<VideosHubViewProps> = ({ onNavigateToFeed }
   return (
     <div className="max-w-6xl mx-auto py-6 px-4 sm:px-6 space-y-6">
       {/* Header Banner */}
-      <div className="bg-gradient-to-r from-violet-600 via-purple-600 to-pink-500 rounded-3xl p-6 sm:p-8 text-white shadow-lg shadow-purple-900/20 flex items-center justify-between flex-wrap gap-4">
+      <div className="bg-white border border-slate-200/80 rounded-3xl p-6 sm:p-8 text-[#0F172A] shadow-[0_4px_24px_-4px_rgba(15,23,42,0.06)] flex items-center justify-between flex-wrap gap-4">
         <div>
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/20 backdrop-blur-md text-xs font-semibold uppercase tracking-wider mb-2">
-            <Film size={14} />
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-50 text-[#3B82F6] border border-blue-200/70 text-xs font-semibold uppercase tracking-wider mb-2">
+            <Film size={14} className="text-[#10B981]" />
             <span>Wave Reels & Video Hub</span>
           </div>
-          <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight">
+          <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-[#0F172A]">
             Community Video Showcase
           </h2>
-          <p className="text-purple-100 text-xs sm:text-sm mt-1 max-w-xl">
+          <p className="text-slate-600 text-xs sm:text-sm mt-1 max-w-xl">
             Watch, like, save, and share high-definition videos uploaded directly from members' device folders.
           </p>
         </div>
 
         <button
           onClick={onNavigateToFeed}
-          className="px-5 py-2.5 rounded-2xl bg-white text-purple-700 hover:bg-purple-50 font-bold text-xs sm:text-sm flex items-center gap-2 shadow-md transition active:scale-95 shrink-0"
+          className="px-5 py-2.5 rounded-2xl bg-[#3B82F6] text-white hover:bg-blue-600 font-bold text-xs sm:text-sm flex items-center gap-2 shadow-sm shadow-blue-500/20 transition active:scale-95 shrink-0"
         >
           <Upload size={16} />
           <span>Upload Video from Folders</span>
@@ -135,13 +135,13 @@ export const VideosHubView: React.FC<VideosHubViewProps> = ({ onNavigateToFeed }
 
       {/* Filter Tabs */}
       <div className="flex items-center justify-between flex-wrap gap-3">
-        <div className="flex rounded-2xl bg-gray-100 dark:bg-gray-800 p-1 text-xs font-semibold">
+        <div className="flex rounded-2xl bg-white border border-slate-200/80 p-1 text-xs font-semibold shadow-2xs">
           <button
             onClick={() => setFilter('all')}
             className={`px-4 py-2 rounded-xl transition ${
               filter === 'all'
-                ? 'bg-purple-600 text-white shadow-xs'
-                : 'text-gray-600 dark:text-gray-300 hover:text-gray-900'
+                ? 'bg-[#3B82F6] text-white shadow-xs'
+                : 'text-slate-600 hover:text-[#0F172A]'
             }`}
           >
             All Videos ({videoPosts.length})
@@ -151,8 +151,8 @@ export const VideosHubView: React.FC<VideosHubViewProps> = ({ onNavigateToFeed }
             onClick={() => setFilter('popular')}
             className={`px-4 py-2 rounded-xl transition ${
               filter === 'popular'
-                ? 'bg-purple-600 text-white shadow-xs'
-                : 'text-gray-600 dark:text-gray-300 hover:text-gray-900'
+                ? 'bg-[#3B82F6] text-white shadow-xs'
+                : 'text-slate-600 hover:text-[#0F172A]'
             }`}
           >
             Trending & Liked
@@ -162,8 +162,8 @@ export const VideosHubView: React.FC<VideosHubViewProps> = ({ onNavigateToFeed }
             onClick={() => setFilter('saved')}
             className={`px-4 py-2 rounded-xl transition flex items-center gap-1.5 ${
               filter === 'saved'
-                ? 'bg-purple-600 text-white shadow-xs'
-                : 'text-gray-600 dark:text-gray-300 hover:text-gray-900'
+                ? 'bg-[#3B82F6] text-white shadow-xs'
+                : 'text-slate-600 hover:text-[#0F172A]'
             }`}
           >
             <Bookmark size={13} />
@@ -173,35 +173,35 @@ export const VideosHubView: React.FC<VideosHubViewProps> = ({ onNavigateToFeed }
 
         <button
           onClick={() => setMuted(!muted)}
-          className="px-3.5 py-1.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-xs font-semibold text-gray-700 dark:text-gray-300 flex items-center gap-2"
+          className="px-3.5 py-2 rounded-2xl border border-slate-200 bg-white text-xs font-semibold text-[#0F172A] flex items-center gap-2 shadow-2xs hover:border-blue-300 transition"
         >
-          {muted ? <VolumeX size={15} className="text-gray-400" /> : <Volume2 size={15} className="text-purple-600" />}
+          {muted ? <VolumeX size={15} className="text-slate-400" /> : <Volume2 size={15} className="text-[#10B981]" />}
           <span>{muted ? 'Audio Muted' : 'Audio On'}</span>
         </button>
       </div>
 
       {/* Video Grid */}
       {isLoading ? (
-        <div className="py-20 text-center text-gray-400 text-xs">
-          <div className="w-8 h-8 border-3 border-purple-600 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
+        <div className="py-20 text-center text-slate-400 text-xs">
+          <div className="w-8 h-8 border-3 border-[#3B82F6] border-t-transparent rounded-full animate-spin mx-auto mb-3" />
           Loading community video hub...
         </div>
       ) : filteredPosts.length === 0 ? (
-        <div className="text-center py-20 px-6 bg-white dark:bg-[#131927] border border-gray-200 dark:border-gray-800 rounded-3xl shadow-xs">
-          <div className="w-16 h-16 rounded-2xl bg-purple-50 dark:bg-purple-950/40 text-purple-600 dark:text-purple-400 mx-auto flex items-center justify-center mb-4 ring-8 ring-purple-50/50 dark:ring-purple-950/20">
+        <div className="text-center py-20 px-6 bg-white border border-slate-200/80 rounded-3xl shadow-[0_4px_24px_-4px_rgba(15,23,42,0.06)]">
+          <div className="w-16 h-16 rounded-2xl bg-blue-50 text-[#3B82F6] mx-auto flex items-center justify-center mb-4 ring-8 ring-blue-50/50">
             <VideoIcon size={32} />
           </div>
-          <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-1">
+          <h3 className="text-lg font-bold text-[#0F172A] mb-1">
             {filter === 'saved' ? 'No Saved Videos Yet' : 'No Videos Shared Yet'}
           </h3>
-          <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 max-w-sm mx-auto mb-6 leading-relaxed">
+          <p className="text-xs sm:text-sm text-slate-500 max-w-sm mx-auto mb-6 leading-relaxed">
             {filter === 'saved'
               ? 'Bookmark any video from the hub to save it here for quick playback.'
               : 'Be the first member to upload a video clip directly from your folders in the Wave Feed!'}
           </p>
           <button
             onClick={onNavigateToFeed}
-            className="px-6 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-semibold text-xs sm:text-sm shadow-md transition active:scale-95"
+            className="px-6 py-2.5 rounded-2xl bg-[#3B82F6] hover:bg-blue-600 text-white font-semibold text-xs sm:text-sm shadow-sm shadow-blue-500/20 transition active:scale-95"
           >
             Upload a Video Now
           </button>
@@ -215,10 +215,10 @@ export const VideosHubView: React.FC<VideosHubViewProps> = ({ onNavigateToFeed }
             return (
               <div
                 key={post.id}
-                className="bg-white dark:bg-[#131927] border border-gray-200/90 dark:border-gray-800 rounded-3xl overflow-hidden shadow-xs flex flex-col justify-between transition hover:border-purple-300 dark:hover:border-purple-900"
+                className="bg-white border border-slate-200/80 rounded-3xl overflow-hidden shadow-[0_4px_24px_-4px_rgba(15,23,42,0.06)] flex flex-col justify-between transition hover:border-blue-300"
               >
                 {/* Video Player Card */}
-                <div className="relative aspect-video bg-black flex items-center justify-center overflow-hidden">
+                <div className="relative aspect-video bg-slate-900 flex items-center justify-center overflow-hidden">
                   <VideoPlayer
                     postId={post.id}
                     videoUrl={post.videoUrl}
@@ -228,8 +228,8 @@ export const VideosHubView: React.FC<VideosHubViewProps> = ({ onNavigateToFeed }
                   />
 
                   {/* Top Floating Badge */}
-                  <div className="absolute top-3 left-3 px-2.5 py-1 rounded-full bg-black/60 backdrop-blur-md text-[10px] font-bold text-white flex items-center gap-1 pointer-events-none z-10">
-                    <Film size={11} className="text-purple-400" />
+                  <div className="absolute top-3 left-3 px-2.5 py-1 rounded-full bg-white/90 backdrop-blur-md text-[10px] font-bold text-[#0F172A] flex items-center gap-1 pointer-events-none z-10 shadow-xs">
+                    <Film size={11} className="text-[#3B82F6]" />
                     <span>Wave Reel</span>
                   </div>
                 </div>
@@ -242,11 +242,11 @@ export const VideosHubView: React.FC<VideosHubViewProps> = ({ onNavigateToFeed }
                       <img
                         src={post.authorPhotoURL || `https://api.dicebear.com/7.x/shapes/svg?seed=${post.authorId}`}
                         alt={post.authorName}
-                        className="w-7 h-7 rounded-full object-cover ring-1 ring-purple-500/20"
+                        className="w-7 h-7 rounded-full object-cover ring-1 ring-blue-500/20"
                       />
                       <div className="min-w-0">
                         <CrystalBadge email={post.authorEmail} name={post.authorName} size="sm" />
-                        <span className="text-[10px] text-gray-400 block font-mono">
+                        <span className="text-[10px] text-slate-400 block font-mono">
                           {post.authorUsername || '@waver'} · {new Date(post.createdAt).toLocaleDateString()}
                         </span>
                       </div>
@@ -267,19 +267,19 @@ export const VideosHubView: React.FC<VideosHubViewProps> = ({ onNavigateToFeed }
                     )}
 
                     {/* Caption */}
-                    <p className="text-xs text-gray-800 dark:text-gray-200 line-clamp-2 leading-relaxed">
+                    <p className="text-xs text-[#0F172A] line-clamp-2 leading-relaxed">
                       {post.content}
                     </p>
                   </div>
 
                   {/* Actions Toolbar */}
-                  <div className="pt-3 border-t border-gray-100 dark:border-gray-800/80 flex items-center justify-between text-xs text-gray-500 dark:text-gray-400">
+                  <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
                     <div className="flex items-center gap-3">
                       {/* Like */}
                       <button
                         onClick={() => handleToggleLike(post)}
-                        className={`flex items-center gap-1 py-1 px-2 rounded-lg transition active:scale-95 ${
-                          isLiked ? 'text-rose-600 font-bold bg-rose-50 dark:bg-rose-950/40' : 'hover:bg-gray-100 dark:hover:bg-gray-800'
+                        className={`flex items-center gap-1 py-1 px-2.5 rounded-xl transition active:scale-95 ${
+                          isLiked ? 'text-rose-600 font-bold bg-rose-50' : 'hover:bg-[#F8FAFC]'
                         }`}
                         title="Like Video"
                       >
@@ -290,12 +290,12 @@ export const VideosHubView: React.FC<VideosHubViewProps> = ({ onNavigateToFeed }
                       {/* Save */}
                       <button
                         onClick={() => handleToggleSave(post.id)}
-                        className={`flex items-center gap-1 py-1 px-2 rounded-lg transition active:scale-95 ${
-                          isSaved ? 'text-purple-600 font-bold bg-purple-50 dark:bg-purple-950/40' : 'hover:bg-gray-100 dark:hover:bg-gray-800'
+                        className={`flex items-center gap-1 py-1 px-2.5 rounded-xl transition active:scale-95 ${
+                          isSaved ? 'text-[#3B82F6] font-bold bg-blue-50' : 'hover:bg-[#F8FAFC]'
                         }`}
                         title={isSaved ? 'Remove from Saved' : 'Save Video'}
                       >
-                        <Bookmark size={15} className={isSaved ? 'fill-purple-600' : ''} />
+                        <Bookmark size={15} className={isSaved ? 'fill-[#3B82F6]' : ''} />
                         <span className="font-mono tabular-numbers">{post.savesCount || 0}</span>
                       </button>
                     </div>
@@ -303,10 +303,10 @@ export const VideosHubView: React.FC<VideosHubViewProps> = ({ onNavigateToFeed }
                     {/* Share */}
                     <button
                       onClick={() => handleShare(post.id)}
-                      className="flex items-center gap-1 py-1 px-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition"
+                      className="flex items-center gap-1 py-1 px-2.5 rounded-xl hover:bg-[#F8FAFC] transition"
                       title="Share Video Link"
                     >
-                      {copiedId === post.id ? <Check size={14} className="text-emerald-500" /> : <Share2 size={14} />}
+                      {copiedId === post.id ? <Check size={14} className="text-[#10B981]" /> : <Share2 size={14} />}
                       <span>{copiedId === post.id ? 'Copied' : 'Share'}</span>
                     </button>
                   </div>

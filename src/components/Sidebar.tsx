@@ -79,19 +79,19 @@ export const Sidebar: React.FC<SidebarProps> = ({
   };
 
   const sidebarContent = (
-    <div className="flex flex-col h-full bg-white dark:bg-[#0f1422] border-r border-gray-200/80 dark:border-gray-800 transition-colors select-none">
+    <div className="flex flex-col h-full bg-[#FFFFFF] dark:bg-[#0f1422] border-r border-slate-200/80 dark:border-gray-800 transition-colors select-none shadow-[2px_0_16px_-4px_rgba(15,23,42,0.04)]">
       {/* Brand Header */}
       <div className="p-5 border-b border-slate-100 dark:border-gray-800/80 flex items-center justify-between">
         <div
           onClick={() => handleSelectTab('feed')}
           className="flex items-center gap-3 cursor-pointer group"
         >
-          <div className="p-2.5 rounded-2xl bg-gradient-to-tr from-blue-500 to-emerald-500 text-white shadow-md shadow-blue-500/25 group-hover:scale-105 transition-transform">
+          <div className="p-2.5 rounded-2xl bg-gradient-to-tr from-[#3B82F6] to-[#10B981] text-white shadow-md shadow-blue-500/20 group-hover:scale-105 transition-transform">
             <Waves size={22} />
           </div>
           <div className="flex flex-col">
-            <span className="font-extrabold text-xl tracking-tight bg-gradient-to-r from-blue-600 via-sky-500 to-emerald-600 bg-clip-text text-transparent">
-              WaveLink
+            <span className="font-extrabold text-xl tracking-tight text-[#0F172A] dark:text-white">
+              Wave<span className="text-[#3B82F6]">Link</span>
             </span>
             <span className="text-[10px] font-semibold text-slate-400 dark:text-gray-500 -mt-0.5">
               Connect &amp; Share
@@ -102,7 +102,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         {isOpenMobile && (
           <button
             onClick={onCloseMobile}
-            className="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-gray-200 rounded-lg md:hidden"
+            className="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-gray-200 rounded-xl md:hidden"
           >
             <X size={18} />
           </button>
@@ -123,10 +123,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <button
               key={item.id}
               onClick={() => handleSelectTab(item.id)}
-              className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-2xl text-xs sm:text-sm font-semibold transition-all duration-150 ${
+              className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-2xl text-xs sm:text-sm font-bold transition-all duration-150 ${
                 isActive
-                  ? 'bg-blue-600 text-white shadow-md shadow-blue-500/25'
-                  : 'text-slate-700 dark:text-gray-300 hover:bg-slate-100/90 dark:hover:bg-gray-800/60'
+                  ? 'bg-[#3B82F6] text-white shadow-md shadow-blue-500/20'
+                  : 'text-[#0F172A] dark:text-gray-300 hover:bg-[#F8FAFC] dark:hover:bg-gray-800/60'
               }`}
             >
               <div className="flex items-center gap-3">
@@ -140,7 +140,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 <span
                   className={`text-[9px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider ${
                     isActive
-                      ? 'bg-white/20 text-white'
+                      ? 'bg-white/25 text-white'
                       : isItemAdmin && isAdmin
                       ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300'
                       : 'bg-slate-100 text-slate-600 dark:bg-gray-800 dark:text-gray-400'
@@ -159,7 +159,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         {!isProUser ? (
           <button
             onClick={() => handleSelectTab('monetization')}
-            className="w-full p-3 rounded-2xl bg-gradient-to-r from-blue-600 to-emerald-600 hover:from-blue-500 hover:to-emerald-500 text-white shadow-md shadow-blue-500/20 active:scale-95 transition flex items-center justify-between gap-2 group"
+            className="w-full p-3 rounded-2xl bg-gradient-to-r from-[#3B82F6] to-[#10B981] hover:opacity-95 text-white shadow-md shadow-blue-500/20 active:scale-95 transition flex items-center justify-between gap-2 group"
           >
             <div className="flex items-center gap-2 text-left min-w-0">
               <div className="p-1.5 rounded-xl bg-white/20">
@@ -167,7 +167,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               </div>
               <div className="min-w-0">
                 <span className="text-xs font-black block tracking-tight">Upgrade to Pro</span>
-                <span className="text-[10px] text-blue-100 block truncate">18,000 TZS Lipa Till</span>
+                <span className="text-[10px] text-blue-100 block truncate">18,000 TZS • 0787473334</span>
               </div>
             </div>
             <Sparkles size={14} className="text-amber-200 shrink-0 group-hover:rotate-12 transition-transform" />
@@ -195,8 +195,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
       </div>
 
       {/* User Account Footer */}
-      <div className="p-3.5 border-t border-gray-100 dark:border-gray-800/80 bg-gray-50/50 dark:bg-[#0c101c]/50">
-        <div className="flex items-center justify-between gap-2 p-2 rounded-2xl bg-white dark:bg-gray-800/70 border border-gray-200/60 dark:border-gray-700/60 shadow-2xs">
+      <div className="p-3.5 border-t border-slate-100 dark:border-gray-800/80 bg-[#F8FAFC] dark:bg-[#0c101c]/50">
+        <div className="flex items-center justify-between gap-2 p-2.5 rounded-2xl bg-[#FFFFFF] dark:bg-gray-800/70 border border-slate-200/80 dark:border-gray-700/60 shadow-2xs">
           <div
             onClick={() => handleSelectTab('settings')}
             className="flex items-center gap-2.5 cursor-pointer min-w-0 flex-1"
@@ -211,7 +211,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               className={`w-9 h-9 rounded-full object-cover shrink-0 ${
                 userProfile?.isPro
                   ? 'pro-aura-gold ring-2 ring-amber-400'
-                  : 'ring-2 ring-purple-500/20'
+                  : 'ring-2 ring-blue-500/20'
               }`}
             />
             <div className="min-w-0 flex-1">
@@ -226,32 +226,31 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   showAdminTag={isAdmin}
                 />
               </div>
-              <div className="text-[10px] text-gray-400 truncate">
+              <div className="text-[10px] text-slate-400 truncate">
                 {currentUser?.email}
               </div>
             </div>
           </div>
 
-
           <div className="flex items-center gap-1 shrink-0">
             <button
               onClick={cycleTheme}
               title={`Switch Theme (Current: ${theme})`}
-              className="p-1.5 text-gray-500 hover:text-purple-600 dark:hover:text-purple-400 rounded-lg transition"
+              className="p-1.5 text-slate-500 hover:text-[#3B82F6] rounded-xl transition"
             >
               {theme === 'light' ? (
                 <Sun size={15} className="text-amber-500" />
               ) : theme === 'dark' ? (
-                <Moon size={15} className="text-purple-400" />
+                <Moon size={15} className="text-[#3B82F6]" />
               ) : (
-                <Laptop size={15} className="text-blue-500" />
+                <Laptop size={15} className="text-[#10B981]" />
               )}
             </button>
 
             <button
               onClick={signOut}
               title="Sign Out"
-              className="p-1.5 text-gray-400 hover:text-rose-600 rounded-lg transition"
+              className="p-1.5 text-slate-400 hover:text-rose-600 rounded-xl transition"
             >
               <LogOut size={15} />
             </button>

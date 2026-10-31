@@ -15,7 +15,7 @@ import {
   arrayUnion,
   arrayRemove
 } from 'firebase/firestore';
-import { Post, PostComment, Announcement } from '../types';
+import { Post, PostComment, Announcement, ReactionType } from '../types';
 import { CrystalBadge } from './CrystalBadge';
 import { VideoPlayer } from './VideoPlayer';
 import { SongPlayerCard } from './SongPlayerCard';
@@ -24,6 +24,7 @@ import { AdsterraAdBanner } from './AdsterraAdBanner';
 import { shouldShowAds } from './AdsterraManager';
 import { RichEventCard } from './RichEventCard';
 import {
+  ThumbsUp,
   Heart,
   MessageCircle,
   Share2,
@@ -82,6 +83,8 @@ const SPONSORED_ADS: Post[] = [
     mediaType: 'image',
     likes: [],
     likesCount: 342,
+    reactions: { like: [], heart: [], fire: [] },
+    reactionCounts: { like: 128, heart: 342, fire: 94 },
     commentsCount: 28,
     isSponsored: true,
     sponsorBrand: 'Starlink Official',
@@ -104,6 +107,8 @@ const SPONSORED_ADS: Post[] = [
     mediaType: 'image',
     likes: [],
     likesCount: 519,
+    reactions: { like: [], heart: [], fire: [] },
+    reactionCounts: { like: 215, heart: 519, fire: 164 },
     commentsCount: 44,
     isSponsored: true,
     sponsorBrand: 'Sony Partner',
@@ -126,6 +131,8 @@ const SPONSORED_ADS: Post[] = [
     mediaType: 'image',
     likes: [],
     likesCount: 412,
+    reactions: { like: [], heart: [], fire: [] },
+    reactionCounts: { like: 176, heart: 412, fire: 138 },
     commentsCount: 19,
     isSponsored: true,
     sponsorBrand: 'DJI Tanzania',
@@ -184,6 +191,11 @@ export const FeedView: React.FC<FeedViewProps> = ({
   const [commentInput, setCommentInput] = useState<Record<string, string>>({});
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
+  // Reaction animation & optimistic state
+  const [animatingReactions, setAnimatingReactions] = useState<Record<string, boolean>>({});
+  const [floatingBursts, setFloatingBursts] = useState<Record<string, number>>({});
+  const [sponsoredReactions, setSponsoredReactions] = useState<Record<string, Post>>({});
+
   // Real-time listener for posts
   useEffect(() => {
     const postsQuery = query(collection(db, 'posts'), orderBy('createdAt', 'desc'));
@@ -198,29 +210,36 @@ export const FeedView: React.FC<FeedViewProps> = ({
         setIsLoading(false);
       },
       (error) => {
-        handleFirestoreError(error, OperationType.LIST, 'posts');
+        console.warn('Feed posts listener notice:', error);
+        setIsLoading(false);
       }
     );
 
     return () => unsub();
-  }, []);
+  }, [currentUser?.uid]);
 
   // Fetch announcements for pinned banner and right sidebar
   useEffect(() => {
     const q = query(collection(db, 'announcements'), orderBy('createdAt', 'desc'));
-    const unsub = onSnapshot(q, (snap) => {
-      let latest: Announcement | null = null;
-      let pinned: Announcement | null = null;
-      snap.forEach((d) => {
-        const item = { id: d.id, ...d.data() } as Announcement;
-        if (!latest) latest = item;
-        if (!pinned && item.isPinned) pinned = item;
-      });
-      setLatestAnnouncement(latest);
-      setPinnedAnnouncement(pinned);
-    });
+    const unsub = onSnapshot(
+      q,
+      (snap) => {
+        let latest: Announcement | null = null;
+        let pinned: Announcement | null = null;
+        snap.forEach((d) => {
+          const item = { id: d.id, ...d.data() } as Announcement;
+          if (!latest) latest = item;
+          if (!pinned && item.isPinned) pinned = item;
+        });
+        setLatestAnnouncement(latest);
+        setPinnedAnnouncement(pinned);
+      },
+      (err) => {
+        console.warn('Announcements listener notice:', err);
+      }
+    );
     return () => unsub();
-  }, []);
+  }, [currentUser?.uid]);
 
   // RSVP toggle for announcement card
   const handleToggleAnnouncementRsvp = async (id: string) => {
@@ -269,35 +288,155 @@ export const FeedView: React.FC<FeedViewProps> = ({
     };
   }, [expandedComments]);
 
-  // Like / Unlike post
-  const handleToggleLike = async (post: Post) => {
+  // Helper to resolve current reaction arrays & counts (with backwards-compatibility for existing post.likes)
+  const getReactionData = (rawPost: Post) => {
+    const post = rawPost.isSponsored && sponsoredReactions[rawPost.id] ? sponsoredReactions[rawPost.id] : rawPost;
+    const likeUsers = post.reactions?.like || [];
+    const heartUsers =
+      post.reactions?.heart !== undefined ? post.reactions.heart : post.likes || [];
+    const fireUsers = post.reactions?.fire || [];
+
+    const likeCount =
+      post.reactionCounts?.like !== undefined ? post.reactionCounts.like : likeUsers.length;
+    const heartCount =
+      post.reactionCounts?.heart !== undefined
+        ? post.reactionCounts.heart
+        : post.reactions?.heart !== undefined
+        ? heartUsers.length
+        : Math.max(post.likesCount || 0, heartUsers.length);
+    const fireCount =
+      post.reactionCounts?.fire !== undefined ? post.reactionCounts.fire : fireUsers.length;
+
+    const uid = currentUser?.uid || '';
+    return {
+      likeUsers,
+      heartUsers,
+      fireUsers,
+      counts: {
+        like: likeCount,
+        heart: heartCount,
+        fire: fireCount,
+        total: likeCount + heartCount + fireCount
+      },
+      active: {
+        like: Boolean(uid && likeUsers.includes(uid)),
+        heart: Boolean(uid && heartUsers.includes(uid)),
+        fire: Boolean(uid && fireUsers.includes(uid))
+      }
+    };
+  };
+
+  // Toggle Reaction (like, heart, fire) in Firestore with click animation
+  const handleToggleReaction = async (rawPost: Post, type: ReactionType) => {
     if (!currentUser) return;
-    const isLiked = post.likes?.includes(currentUser.uid);
-    const updatedLikes = isLiked
-      ? (post.likes || []).filter((id) => id !== currentUser.uid)
-      : [...(post.likes || []), currentUser.uid];
+
+    const animKey = `${rawPost.id}_${type}`;
+    setAnimatingReactions((prev) => ({ ...prev, [animKey]: true }));
+    setTimeout(() => {
+      setAnimatingReactions((prev) => ({ ...prev, [animKey]: false }));
+    }, 650);
+
+    const { likeUsers, heartUsers, fireUsers, counts, active } = getReactionData(rawPost);
+    const isCurrentlyActive = active[type];
+
+    if (!isCurrentlyActive) {
+      setFloatingBursts((prev) => ({ ...prev, [animKey]: Date.now() }));
+      setTimeout(() => {
+        setFloatingBursts((prev) => {
+          const next = { ...prev };
+          delete next[animKey];
+          return next;
+        });
+      }, 720);
+    }
+
+    const uid = currentUser.uid;
+    const nextLikes =
+      type === 'like'
+        ? isCurrentlyActive
+          ? likeUsers.filter((id) => id !== uid)
+          : [...likeUsers, uid]
+        : likeUsers;
+
+    const nextHearts =
+      type === 'heart'
+        ? isCurrentlyActive
+          ? heartUsers.filter((id) => id !== uid)
+          : [...heartUsers, uid]
+        : heartUsers;
+
+    const nextFires =
+      type === 'fire'
+        ? isCurrentlyActive
+          ? fireUsers.filter((id) => id !== uid)
+          : [...fireUsers, uid]
+        : fireUsers;
+
+    // Sponsored posts are client-side curated units; update local interactive state
+    if (rawPost.isSponsored) {
+      const basePost = sponsoredReactions[rawPost.id] || rawPost;
+      const delta = isCurrentlyActive ? -1 : 1;
+      setSponsoredReactions((prev) => ({
+        ...prev,
+        [rawPost.id]: {
+          ...basePost,
+          likes: nextHearts,
+          likesCount: Math.max(0, counts.heart + (type === 'heart' ? delta : 0)),
+          reactions: {
+            like: nextLikes,
+            heart: nextHearts,
+            fire: nextFires
+          },
+          reactionCounts: {
+            like: Math.max(0, counts.like + (type === 'like' ? delta : 0)),
+            heart: Math.max(0, counts.heart + (type === 'heart' ? delta : 0)),
+            fire: Math.max(0, counts.fire + (type === 'fire' ? delta : 0))
+          }
+        }
+      }));
+      return;
+    }
+
+    const updatedReactions = {
+      like: nextLikes,
+      heart: nextHearts,
+      fire: nextFires
+    };
+    const updatedReactionCounts = {
+      like: nextLikes.length,
+      heart: nextHearts.length,
+      fire: nextFires.length
+    };
 
     try {
-      await updateDoc(doc(db, 'posts', post.id), {
-        likes: updatedLikes,
-        likesCount: updatedLikes.length
+      await updateDoc(doc(db, 'posts', rawPost.id), {
+        reactions: updatedReactions,
+        reactionCounts: updatedReactionCounts,
+        likes: nextHearts,
+        likesCount: nextHearts.length
       });
 
-      // Dispatch post_like notification to the author if not self
-      if (!isLiked && post.authorId && post.authorId !== currentUser.uid) {
+      // Dispatch notification to post author when adding a reaction
+      if (!isCurrentlyActive && rawPost.authorId && rawPost.authorId !== currentUser.uid) {
+        const reactionLabels: Record<ReactionType, { emoji: string; verb: string; title: string }> = {
+          like: { emoji: '👍', verb: 'liked', title: 'New Like on Your Wave! 👍' },
+          heart: { emoji: '❤️', verb: 'loved', title: 'Wave Loved! ❤️' },
+          fire: { emoji: '🔥', verb: 'hyped', title: 'Your Wave Is On Fire! 🔥' }
+        };
+        const meta = reactionLabels[type];
         sendNotification({
-          recipientId: post.authorId,
+          recipientId: rawPost.authorId,
           type: 'post_like',
-          title: 'Wave Liked! ❤️',
-          body: `${userProfile?.displayName || currentUser.displayName || 'A waver'} liked your wave.`,
-          entityId: post.id,
+          title: meta.title,
+          body: `${userProfile?.displayName || currentUser.displayName || 'A waver'} ${meta.verb} your wave ${meta.emoji}`,
+          entityId: rawPost.id,
           actorId: currentUser.uid,
           actorName: userProfile?.displayName || currentUser.displayName || 'A waver',
           actorPhotoURL: userProfile?.photoURL || currentUser.photoURL || undefined
         });
       }
     } catch (error) {
-      handleFirestoreError(error, OperationType.UPDATE, `posts/${post.id}`);
+      handleFirestoreError(error, OperationType.UPDATE, `posts/${rawPost.id}`);
     }
   };
 
@@ -382,6 +521,8 @@ export const FeedView: React.FC<FeedViewProps> = ({
         mediaType: inlineMediaType === 'video' ? 'video' : inlineMediaType === 'image' && inlineMediaPreview ? 'image' : undefined,
         likes: [],
         likesCount: 0,
+        reactions: { like: [], heart: [], fire: [] },
+        reactionCounts: { like: 0, heart: 0, fire: 0 },
         commentsCount: 0,
         createdAt: new Date().toISOString()
       };
@@ -397,6 +538,109 @@ export const FeedView: React.FC<FeedViewProps> = ({
     } finally {
       setIsSubmittingPost(false);
     }
+  };
+
+  // Reusable Reaction Bar Group (Like 👍, Heart ❤️, Fire 🔥) with real-time counters & click animations
+  const renderReactionBar = (post: Post) => {
+    const { counts, active } = getReactionData(post);
+    const likeAnim = animatingReactions[`${post.id}_like`];
+    const heartAnim = animatingReactions[`${post.id}_heart`];
+    const fireAnim = animatingReactions[`${post.id}_fire`];
+
+    const likeBurst = floatingBursts[`${post.id}_like`];
+    const heartBurst = floatingBursts[`${post.id}_heart`];
+    const fireBurst = floatingBursts[`${post.id}_fire`];
+
+    return (
+      <div className="inline-flex items-center gap-1.5 bg-[#F8FAFC] dark:bg-gray-800/70 p-1 rounded-2xl border border-slate-200/80 dark:border-gray-700/80">
+        {/* LIKE (ThumbsUp) */}
+        <button
+          type="button"
+          onClick={() => handleToggleReaction(post, 'like')}
+          title="Like Wave"
+          aria-label={`Like post (${counts.like})`}
+          className={`relative flex items-center gap-1.5 py-1.5 px-2.5 sm:px-3 rounded-xl transition-all duration-200 select-none active:scale-90 ${
+            active.like
+              ? 'bg-[#3B82F6]/12 text-[#3B82F6] dark:bg-blue-950/60 dark:text-blue-400 font-extrabold ring-1 ring-[#3B82F6]/30 shadow-2xs'
+              : 'text-slate-600 dark:text-gray-400 hover:bg-white dark:hover:bg-gray-800 hover:text-[#3B82F6]'
+          }`}
+        >
+          {likeBurst && (
+            <span
+              key={likeBurst}
+              className="pointer-events-none absolute -top-1 left-1/2 text-sm animate-reaction-float z-20"
+            >
+              👍
+            </span>
+          )}
+          <ThumbsUp
+            size={15}
+            className={`transition-transform ${likeAnim ? 'animate-reaction-like' : ''} ${
+              active.like ? 'fill-[#3B82F6] text-[#3B82F6] dark:fill-blue-400 dark:text-blue-400' : ''
+            }`}
+          />
+          <span className="font-mono tabular-numbers text-xs">{counts.like}</span>
+        </button>
+
+        {/* HEART (Love) */}
+        <button
+          type="button"
+          onClick={() => handleToggleReaction(post, 'heart')}
+          title="Love Wave"
+          aria-label={`Love post (${counts.heart})`}
+          className={`relative flex items-center gap-1.5 py-1.5 px-2.5 sm:px-3 rounded-xl transition-all duration-200 select-none active:scale-90 ${
+            active.heart
+              ? 'bg-rose-500/12 text-rose-600 dark:bg-rose-950/60 dark:text-rose-400 font-extrabold ring-1 ring-rose-500/30 shadow-2xs'
+              : 'text-slate-600 dark:text-gray-400 hover:bg-white dark:hover:bg-gray-800 hover:text-rose-600'
+          }`}
+        >
+          {heartBurst && (
+            <span
+              key={heartBurst}
+              className="pointer-events-none absolute -top-1 left-1/2 text-sm animate-reaction-float z-20"
+            >
+              ❤️
+            </span>
+          )}
+          <Heart
+            size={15}
+            className={`transition-transform ${heartAnim ? 'animate-reaction-heart' : ''} ${
+              active.heart ? 'fill-rose-600 text-rose-600 dark:fill-rose-400 dark:text-rose-400' : ''
+            }`}
+          />
+          <span className="font-mono tabular-numbers text-xs">{counts.heart}</span>
+        </button>
+
+        {/* FIRE (Hype) */}
+        <button
+          type="button"
+          onClick={() => handleToggleReaction(post, 'fire')}
+          title="Fire Wave"
+          aria-label={`Fire post (${counts.fire})`}
+          className={`relative flex items-center gap-1.5 py-1.5 px-2.5 sm:px-3 rounded-xl transition-all duration-200 select-none active:scale-90 ${
+            active.fire
+              ? 'bg-orange-500/12 text-orange-600 dark:bg-orange-950/60 dark:text-orange-400 font-extrabold ring-1 ring-orange-500/30 shadow-2xs'
+              : 'text-slate-600 dark:text-gray-400 hover:bg-white dark:hover:bg-gray-800 hover:text-orange-500'
+          }`}
+        >
+          {fireBurst && (
+            <span
+              key={fireBurst}
+              className="pointer-events-none absolute -top-1 left-1/2 text-sm animate-reaction-float z-20"
+            >
+              🔥
+            </span>
+          )}
+          <Flame
+            size={15}
+            className={`transition-transform ${fireAnim ? 'animate-reaction-fire' : ''} ${
+              active.fire ? 'fill-orange-500 text-orange-600 dark:fill-orange-400 dark:text-orange-400' : ''
+            }`}
+          />
+          <span className="font-mono tabular-numbers text-xs">{counts.fire}</span>
+        </button>
+      </div>
+    );
   };
 
 
@@ -484,13 +728,13 @@ export const FeedView: React.FC<FeedViewProps> = ({
   }
 
   return (
-    <div className="w-full max-w-7xl mx-auto px-2 sm:px-4 md:px-6 py-4 sm:py-6">
-      <div className="flex flex-row gap-6 items-start justify-center">
+    <div className="w-full max-w-7xl mx-auto px-3 sm:px-5 md:px-8 py-5 sm:py-7">
+      <div className="flex flex-row gap-7 items-start justify-center">
         {/* Center Main Feed (Width < 768px: Full Width, Width >= 768px: max-w-2xl) */}
-        <div className="flex-1 min-w-0 max-w-full md:max-w-2xl w-full space-y-5 overflow-hidden">
+        <div className="flex-1 min-w-0 max-w-full md:max-w-2xl w-full space-y-6 overflow-hidden">
           {/* Active Hashtag Filter Banner from Global Search */}
           {initialFilterTag && (
-            <div className="p-3.5 sm:p-4 rounded-3xl bg-gradient-to-r from-blue-600 to-emerald-600 text-white flex items-center justify-between gap-3 shadow-md animate-in fade-in">
+            <div className="p-4 rounded-3xl bg-gradient-to-r from-[#3B82F6] to-[#10B981] text-white flex items-center justify-between gap-3 shadow-md animate-in fade-in">
               <div className="flex items-center gap-2.5 min-w-0">
                 <div className="p-2 rounded-2xl bg-white/20 text-white shrink-0">
                   <Hash size={18} />
@@ -515,41 +759,41 @@ export const FeedView: React.FC<FeedViewProps> = ({
           )}
 
           {/* Warm, Bright & Inviting Welcome Hero Banner */}
-          <div className="relative overflow-hidden rounded-3xl p-5 sm:p-7 bg-gradient-to-r from-blue-600 via-sky-500 to-emerald-500 text-white shadow-lg shadow-blue-500/15">
-            {/* Ambient soft glow circles */}
-            <div className="absolute -top-12 -right-12 w-48 h-48 rounded-full bg-white/15 blur-2xl pointer-events-none" />
-            <div className="absolute -bottom-10 left-1/3 w-40 h-40 rounded-full bg-emerald-300/20 blur-2xl pointer-events-none" />
+          <div className="relative overflow-hidden rounded-3xl p-6 sm:p-7 bg-[#FFFFFF] border border-slate-200/80 shadow-[0_6px_28px_-4px_rgba(15,23,42,0.06)] text-[#0F172A]">
+            {/* Ambient soft pastel glow circles */}
+            <div className="absolute -top-12 -right-12 w-52 h-52 rounded-full bg-[#3B82F6]/10 blur-2xl pointer-events-none" />
+            <div className="absolute -bottom-10 left-1/3 w-44 h-44 rounded-full bg-[#10B981]/10 blur-2xl pointer-events-none" />
 
             <div className="relative z-10 flex items-center justify-between flex-wrap gap-4">
               <div>
-                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/20 backdrop-blur-md text-xs font-bold uppercase tracking-wider mb-2 border border-white/20">
-                  <Sparkles size={14} className="text-emerald-200" />
+                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-50 text-[#3B82F6] text-xs font-extrabold uppercase tracking-wider mb-2.5 border border-blue-200/70">
+                  <Sparkles size={13} className="text-[#10B981]" />
                   <span>Welcome to the Community</span>
                 </div>
-                <h2 className="text-xl sm:text-2xl lg:text-3xl font-black tracking-tight">
-                  Welcome to WaveLink, {userProfile?.displayName?.split(' ')[0] || 'Friend'}! 🌊
+                <h2 className="text-xl sm:text-2xl lg:text-3xl font-extrabold tracking-tight text-[#0F172A]">
+                  Hello, {userProfile?.displayName?.split(' ')[0] || 'Friend'}! 🌊
                 </h2>
-                <p className="text-blue-50 text-xs sm:text-sm mt-1 max-w-xl font-medium leading-relaxed">
-                  Connect, share moments, upload photos &amp; reels, and discover creators across East Africa.
+                <p className="text-slate-600 text-xs sm:text-sm mt-1.5 max-w-xl font-medium leading-relaxed">
+                  Connect with friends, share your brightest moments, upload photos &amp; reels, and discover creators across East Africa.
                 </p>
               </div>
 
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2.5">
                 {onNavigateTab && (
                   <>
                     <button
                       onClick={() => onNavigateTab('monetization')}
-                      className="px-4 py-2.5 rounded-2xl bg-white text-blue-700 hover:bg-blue-50 font-bold text-xs flex items-center gap-1.5 shadow-sm active:scale-95 transition"
+                      className="px-4 py-2.5 rounded-2xl bg-[#10B981] hover:bg-emerald-600 text-white font-bold text-xs flex items-center gap-1.5 shadow-sm shadow-emerald-500/20 active:scale-95 transition"
                     >
-                      <Coins size={14} className="text-emerald-600" />
+                      <Coins size={14} />
                       <span>Monetization</span>
                     </button>
                     <button
                       onClick={() => onNavigateTab('videos')}
-                      className="px-4 py-2.5 rounded-2xl bg-white/20 hover:bg-white/30 backdrop-blur-md text-white font-bold text-xs flex items-center gap-2 border border-white/30 transition shadow-xs active:scale-95"
+                      className="px-4 py-2.5 rounded-2xl bg-[#3B82F6] hover:bg-blue-600 text-white font-bold text-xs flex items-center gap-2 transition shadow-sm shadow-blue-500/20 active:scale-95"
                     >
-                      <VideoIcon size={14} className="text-emerald-200" />
-                      <span>Reels</span>
+                      <VideoIcon size={14} />
+                      <span>Explore Reels</span>
                     </button>
                   </>
                 )}
@@ -557,130 +801,130 @@ export const FeedView: React.FC<FeedViewProps> = ({
             </div>
           </div>
 
-        {/* 24-Hour Moments Spark Tray */}
-        <div className="w-full max-w-full overflow-hidden">
-          <SparkTray />
-        </div>
-
-        {/* Pinned Community Announcement Banner for Admins & Verified Organizations */}
-        {pinnedAnnouncement && (
-          <div className="w-full max-w-full">
-            <RichEventCard
-              announcement={pinnedAnnouncement}
-              isFeedBanner={true}
-              onRsvp={handleToggleAnnouncementRsvp}
-            />
+          {/* 24-Hour Moments Spark Tray */}
+          <div className="w-full max-w-full overflow-hidden">
+            <SparkTray />
           </div>
-        )}
 
-        {/* Center Main Feed: Post Creation Box */}
-        <div className="w-full max-w-full overflow-hidden bg-white dark:bg-[#131927] border border-gray-200/90 dark:border-gray-800 rounded-3xl p-4 sm:p-5 shadow-xs transition">
-          <div className="flex items-start gap-3">
-            <img
-              src={
-                userProfile?.photoURL ||
-                currentUser?.photoURL ||
-                `https://api.dicebear.com/7.x/shapes/svg?seed=${currentUser?.uid || 'user'}`
-              }
-              alt="User"
-              className="w-10 h-10 rounded-full object-cover ring-2 ring-purple-500/20 shrink-0 mt-0.5"
-            />
-            <div className="flex-1 min-w-0">
-              <textarea
-                value={inlineContent}
-                onChange={(e) => setInlineContent(e.target.value)}
-                placeholder={`What's making waves today, ${userProfile?.displayName?.split(' ')[0] || 'Friend'}?`}
-                rows={2}
-                className="w-full max-w-full bg-transparent border-0 resize-none text-sm text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:outline-hidden focus:ring-0 break-words leading-relaxed"
+          {/* Pinned Community Announcement Banner for Admins & Verified Organizations */}
+          {pinnedAnnouncement && (
+            <div className="w-full max-w-full">
+              <RichEventCard
+                announcement={pinnedAnnouncement}
+                isFeedBanner={true}
+                onRsvp={handleToggleAnnouncementRsvp}
               />
+            </div>
+          )}
 
-              {inlineMediaPreview && (
-                <div className="relative rounded-2xl overflow-hidden my-2 border border-gray-200 dark:border-gray-700 max-h-60 bg-black/10">
-                  {inlineMediaType === 'video' ? (
-                    <video src={inlineMediaPreview} controls className="w-full h-auto max-h-60 object-cover" />
-                  ) : (
-                    <img src={inlineMediaPreview} alt="Preview" className="w-full h-auto max-h-60 object-cover" />
-                  )}
-                  <button
-                    onClick={() => {
-                      setInlineMediaFile(null);
-                      setInlineMediaPreview(null);
-                    }}
-                    className="absolute top-2 right-2 p-1.5 rounded-full bg-black/70 text-white hover:bg-black/90 transition"
-                    title="Remove attachment"
-                  >
-                    <X size={14} />
-                  </button>
-                </div>
-              )}
+          {/* Center Main Feed: Spacious, Welcoming Post Creation Card */}
+          <div className="w-full max-w-full overflow-hidden bg-[#FFFFFF] dark:bg-[#131927] border border-slate-200/80 dark:border-gray-800 rounded-3xl p-5 sm:p-6 shadow-[0_4px_24px_-4px_rgba(15,23,42,0.06)] transition">
+            <div className="flex items-start gap-3.5">
+              <img
+                src={
+                  userProfile?.photoURL ||
+                  currentUser?.photoURL ||
+                  `https://api.dicebear.com/7.x/shapes/svg?seed=${currentUser?.uid || 'user'}`
+                }
+                alt="User"
+                className="w-11 h-11 rounded-full object-cover ring-2 ring-[#3B82F6]/20 shrink-0 mt-0.5"
+              />
+              <div className="flex-1 min-w-0">
+                <textarea
+                  value={inlineContent}
+                  onChange={(e) => setInlineContent(e.target.value)}
+                  placeholder={`What's making waves today, ${userProfile?.displayName?.split(' ')[0] || 'Friend'}?`}
+                  rows={3}
+                  className="w-full max-w-full bg-[#F8FAFC] dark:bg-gray-800/50 rounded-2xl p-3.5 border border-slate-200/80 dark:border-gray-700 resize-none text-sm text-[#0F172A] dark:text-gray-100 placeholder-slate-400 focus:outline-none focus:bg-white focus:border-[#3B82F6] focus:ring-2 focus:ring-[#3B82F6]/15 break-words leading-relaxed transition"
+                />
 
-              <div className="flex items-center justify-between pt-3 border-t border-gray-100 dark:border-gray-800/80 flex-wrap gap-2">
-                <div className="flex items-center gap-1.5 flex-wrap">
-                  <input
-                    type="file"
-                    ref={fileInputRef}
-                    className="hidden"
-                    accept="image/*,video/*"
-                    onChange={handleMediaSelect}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (fileInputRef.current) {
-                        fileInputRef.current.accept = 'image/*';
-                        fileInputRef.current.click();
-                      }
-                    }}
-                    className="px-2.5 py-1.5 rounded-xl hover:bg-blue-50 dark:hover:bg-blue-950/40 text-blue-600 dark:text-blue-400 text-xs font-semibold flex items-center gap-1.5 transition"
-                  >
-                    <ImageIcon size={15} />
-                    <span className="hidden sm:inline">Photo</span>
-                  </button>
+                {inlineMediaPreview && (
+                  <div className="relative rounded-2xl overflow-hidden my-3 border border-slate-200 dark:border-gray-700 max-h-64 bg-slate-50">
+                    {inlineMediaType === 'video' ? (
+                      <video src={inlineMediaPreview} controls className="w-full h-auto max-h-64 object-cover" />
+                    ) : (
+                      <img src={inlineMediaPreview} alt="Preview" className="w-full h-auto max-h-64 object-cover" />
+                    )}
+                    <button
+                      onClick={() => {
+                        setInlineMediaFile(null);
+                        setInlineMediaPreview(null);
+                      }}
+                      className="absolute top-2.5 right-2.5 p-1.5 rounded-full bg-slate-900/75 text-white hover:bg-slate-900 transition"
+                      title="Remove attachment"
+                    >
+                      <X size={14} />
+                    </button>
+                  </div>
+                )}
 
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (fileInputRef.current) {
-                        fileInputRef.current.accept = 'video/*';
-                        fileInputRef.current.click();
-                      }
-                    }}
-                    className="px-2.5 py-1.5 rounded-xl hover:bg-emerald-50 dark:hover:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 text-xs font-semibold flex items-center gap-1.5 transition"
-                  >
-                    <VideoIcon size={15} />
-                    <span className="hidden sm:inline">Reel</span>
-                  </button>
-
-                  {onNavigateTab && (
+                <div className="flex items-center justify-between pt-3.5 mt-2 flex-wrap gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <input
+                      type="file"
+                      ref={fileInputRef}
+                      className="hidden"
+                      accept="image/*,video/*"
+                      onChange={handleMediaSelect}
+                    />
                     <button
                       type="button"
-                      onClick={() => onNavigateTab('studio')}
-                      className="px-2.5 py-1.5 rounded-xl hover:bg-sky-50 dark:hover:bg-sky-950/40 text-sky-600 dark:text-sky-400 text-xs font-semibold flex items-center gap-1.5 transition"
+                      onClick={() => {
+                        if (fileInputRef.current) {
+                          fileInputRef.current.accept = 'image/*';
+                          fileInputRef.current.click();
+                        }
+                      }}
+                      className="px-3 py-2 rounded-xl bg-blue-50/80 hover:bg-blue-100/80 dark:bg-blue-950/40 text-[#3B82F6] text-xs font-bold flex items-center gap-1.5 transition"
                     >
-                      <Wand2 size={15} />
-                      <span className="hidden sm:inline">Studio</span>
+                      <ImageIcon size={15} />
+                      <span>Photo</span>
                     </button>
-                  )}
-                </div>
 
-                <button
-                  onClick={handleCreatePost}
-                  disabled={isSubmittingPost || (!inlineContent.trim() && !inlineMediaPreview)}
-                  className="px-5 py-2.5 rounded-2xl bg-gradient-to-r from-blue-600 to-emerald-600 hover:from-blue-500 hover:to-emerald-500 disabled:opacity-40 disabled:pointer-events-none text-white font-extrabold text-xs flex items-center gap-1.5 shadow-md shadow-blue-500/20 active:scale-95 transition"
-                >
-                  {isSubmittingPost ? (
-                    <span>Posting...</span>
-                  ) : (
-                    <>
-                      <Send size={13} />
-                      <span>Wave It</span>
-                    </>
-                  )}
-                </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (fileInputRef.current) {
+                          fileInputRef.current.accept = 'video/*';
+                          fileInputRef.current.click();
+                        }
+                      }}
+                      className="px-3 py-2 rounded-xl bg-emerald-50/80 hover:bg-emerald-100/80 dark:bg-emerald-950/40 text-[#10B981] text-xs font-bold flex items-center gap-1.5 transition"
+                    >
+                      <VideoIcon size={15} />
+                      <span>Reel</span>
+                    </button>
+
+                    {onNavigateTab && (
+                      <button
+                        type="button"
+                        onClick={() => onNavigateTab('studio')}
+                        className="px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200/80 dark:bg-gray-800 text-[#0F172A] dark:text-gray-200 text-xs font-bold flex items-center gap-1.5 transition"
+                      >
+                        <Wand2 size={15} className="text-[#3B82F6]" />
+                        <span>Studio</span>
+                      </button>
+                    )}
+                  </div>
+
+                  <button
+                    onClick={handleCreatePost}
+                    disabled={isSubmittingPost || (!inlineContent.trim() && !inlineMediaPreview)}
+                    className="px-6 py-2.5 rounded-2xl bg-[#3B82F6] hover:bg-blue-600 disabled:opacity-40 disabled:pointer-events-none text-white font-extrabold text-xs sm:text-sm flex items-center gap-2 shadow-md shadow-blue-500/20 active:scale-95 transition"
+                  >
+                    {isSubmittingPost ? (
+                      <span>Posting...</span>
+                    ) : (
+                      <>
+                        <Send size={14} />
+                        <span>Share Wave</span>
+                      </>
+                    )}
+                  </button>
+                </div>
               </div>
             </div>
           </div>
-        </div>
 
           {/* Wave Studio Quick Action */}
           <div className="bg-gradient-to-r from-blue-50/80 via-sky-50/60 to-emerald-50/70 border border-blue-200/70 dark:border-blue-900/40 rounded-3xl p-5 shadow-xs flex items-center justify-between flex-wrap gap-4">
@@ -715,20 +959,20 @@ export const FeedView: React.FC<FeedViewProps> = ({
             {isLoading ? (
               <PostSkeleton count={3} />
             ) : combinedFeed.length === 0 ? (
-              <div className="text-center py-16 px-6 bg-white dark:bg-[#131927] border-2 border-purple-100 dark:border-purple-900/40 rounded-3xl shadow-xs">
-                <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-purple-500 to-pink-500 text-white mx-auto flex items-center justify-center mb-4 shadow-lg shadow-purple-500/20">
+              <div className="text-center py-16 px-6 bg-white dark:bg-[#131927] border border-blue-200/80 dark:border-blue-900/40 rounded-3xl shadow-sm">
+                <div className="w-16 h-16 rounded-3xl bg-gradient-to-tr from-blue-500 to-emerald-500 text-white mx-auto flex items-center justify-center mb-4 shadow-md shadow-blue-500/20">
                   <Waves size={32} />
                 </div>
-                <h3 className="text-xl font-extrabold text-gray-900 dark:text-white mb-1">
+                <h3 className="text-xl font-extrabold text-[#0F172A] dark:text-white mb-1">
                   Feed Is Clear & Ready!
                 </h3>
-                <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 max-w-sm mx-auto mb-6 leading-relaxed">
+                <p className="text-xs sm:text-sm text-slate-500 dark:text-gray-400 max-w-sm mx-auto mb-6 leading-relaxed">
                   WaveLink operates with strict zero mock data. Open the Media Studio to design, edit photos & videos, and post the very first wave!
                 </p>
                 {onNavigateTab && (
                   <button
                     onClick={() => onNavigateTab('studio')}
-                    className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:opacity-95 text-white font-bold text-xs sm:text-sm shadow-md transition inline-flex items-center gap-2"
+                    className="px-6 py-3 rounded-2xl bg-gradient-to-r from-blue-600 to-emerald-600 hover:from-blue-500 hover:to-emerald-500 text-white font-bold text-xs sm:text-sm shadow-sm shadow-blue-500/20 active:scale-95 transition inline-flex items-center gap-2"
                   >
                     <Wand2 size={16} />
                     <span>Open Media Studio</span>
@@ -737,7 +981,6 @@ export const FeedView: React.FC<FeedViewProps> = ({
               </div>
             ) : (
               combinedFeed.map((post) => {
-                const isLiked = post.likes?.includes(currentUser?.uid || '');
                 const isSaved = (userProfile?.savedPostIds || []).includes(post.id);
                 const isAuthor = post.authorId === currentUser?.uid;
                 const canDelete = isAuthor || isAdmin;
@@ -750,7 +993,7 @@ export const FeedView: React.FC<FeedViewProps> = ({
                   return (
                     <div
                       key={post.id}
-                      className="w-full my-4 rounded-xl border border-slate-800 bg-slate-900/50 p-4 sm:p-5 overflow-hidden text-slate-100 shadow-md transition hover:border-slate-700"
+                      className="w-full my-4 rounded-3xl border border-blue-200/80 bg-white dark:bg-[#131927] p-4 sm:p-5 overflow-hidden text-slate-800 dark:text-slate-100 shadow-sm transition hover:border-blue-300"
                     >
                       {/* Sponsored Header */}
                       <div className="flex items-center justify-between mb-3.5">
@@ -758,23 +1001,23 @@ export const FeedView: React.FC<FeedViewProps> = ({
                           <img
                             src={post.authorPhotoURL}
                             alt={post.authorName}
-                            className="w-9 h-9 rounded-full object-cover ring-2 ring-purple-500/40 shrink-0"
+                            className="w-9 h-9 rounded-full object-cover ring-2 ring-blue-500/30 shrink-0"
                           />
                           <div className="min-w-0">
                             <div className="flex items-center gap-2 flex-wrap">
-                              <span className="font-extrabold text-sm sm:text-base text-white truncate">
+                              <span className="font-extrabold text-sm sm:text-base text-[#0F172A] dark:text-white truncate">
                                 {post.authorName}
                               </span>
-                              <span className="text-xs font-mono text-purple-400 truncate">
+                              <span className="text-xs font-mono text-blue-600 dark:text-blue-400 font-semibold truncate">
                                 {post.authorUsername}
                               </span>
                               {/* Subtle tiny sponsored tag */}
-                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400 border border-gray-200 dark:border-gray-700">
+                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase bg-blue-50 text-blue-700 dark:bg-blue-950/60 dark:text-blue-300 border border-blue-200/60 dark:border-blue-800">
                                 <Tag size={10} className="text-amber-500" />
                                 <span>Sponsored</span>
                               </span>
                             </div>
-                            <div className="flex items-center gap-1.5 text-xs text-gray-400 mt-0.5">
+                            <div className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-gray-400 mt-0.5">
                               <span>Recommended Community Wave</span>
                             </div>
                           </div>
@@ -782,13 +1025,13 @@ export const FeedView: React.FC<FeedViewProps> = ({
                       </div>
 
                       {/* Content */}
-                      <p className="text-sm text-gray-800 dark:text-gray-200 whitespace-pre-wrap leading-relaxed mb-3.5">
+                      <p className="text-sm text-slate-700 dark:text-gray-200 whitespace-pre-wrap leading-relaxed mb-3.5">
                         {post.content}
                       </p>
 
                       {/* Image */}
                       {post.imageUrl && (
-                        <div className="rounded-2xl overflow-hidden mb-3.5 border border-gray-100 dark:border-gray-800 max-h-96 bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
+                        <div className="rounded-2xl overflow-hidden mb-3.5 border border-slate-100 dark:border-gray-800 max-h-96 bg-slate-50 dark:bg-gray-900 flex items-center justify-center">
                           <img
                             src={post.imageUrl}
                             alt="Sponsored item"
@@ -799,20 +1042,20 @@ export const FeedView: React.FC<FeedViewProps> = ({
 
                       {/* Smart Contextual Affiliate Shop Box */}
                       {post.affiliateProductTitle && (
-                        <div className="p-4 rounded-2xl bg-gradient-to-r from-purple-50 via-indigo-50/50 to-pink-50/40 dark:from-purple-950/40 dark:via-indigo-950/30 dark:to-slate-900/40 border border-purple-200 dark:border-purple-800/80 mb-3.5 flex items-center justify-between flex-wrap gap-3">
+                        <div className="p-4 rounded-2xl bg-gradient-to-r from-blue-50 via-sky-50/50 to-emerald-50/40 dark:from-blue-950/40 dark:via-sky-950/30 dark:to-slate-900/40 border border-blue-200 dark:border-blue-800/80 mb-3.5 flex items-center justify-between flex-wrap gap-3">
                           <div className="min-w-0 flex-1">
                             <div className="flex items-center gap-2">
-                              <span className="text-[10px] font-black uppercase text-purple-600 dark:text-purple-400 tracking-wider">
+                              <span className="text-[10px] font-black uppercase text-blue-600 dark:text-blue-400 tracking-wider">
                                 Featured Product
                               </span>
                               <span className="text-[10px] font-bold text-amber-500">
                                 ★ {post.affiliateRating || 4.9}
                               </span>
                             </div>
-                            <h4 className="font-bold text-xs sm:text-sm text-gray-900 dark:text-white truncate mt-0.5">
+                            <h4 className="font-bold text-xs sm:text-sm text-[#0F172A] dark:text-white truncate mt-0.5">
                               {post.affiliateProductTitle}
                             </h4>
-                            <span className="text-xs font-black font-mono text-purple-600 dark:text-purple-400">
+                            <span className="text-xs font-black font-mono text-emerald-600 dark:text-emerald-400">
                               {post.affiliateProductPrice}
                             </span>
                           </div>
@@ -821,7 +1064,7 @@ export const FeedView: React.FC<FeedViewProps> = ({
                             href={post.affiliateProductUrl}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:opacity-95 text-white font-extrabold text-xs flex items-center gap-1.5 shadow-md shadow-purple-600/20 active:scale-95 transition shrink-0"
+                            className="px-4 py-2.5 rounded-2xl bg-gradient-to-r from-blue-600 to-emerald-600 hover:from-blue-500 hover:to-emerald-500 text-white font-extrabold text-xs flex items-center gap-1.5 shadow-sm shadow-blue-600/20 active:scale-95 transition shrink-0"
                           >
                             <ShoppingBag size={14} />
                             <span>{post.affiliateButtonText || 'Shop Now'}</span>
@@ -831,18 +1074,12 @@ export const FeedView: React.FC<FeedViewProps> = ({
                       )}
 
                       {/* Action Bar */}
-                      <div className="flex items-center justify-between pt-3 border-t border-gray-100 dark:border-gray-800 text-xs font-semibold text-gray-500 dark:text-gray-400">
-                        <div className="flex items-center gap-3">
-                          <button
-                            onClick={() => handleToggleLike(post)}
-                            className="flex items-center gap-1.5 py-1.5 px-3 rounded-xl transition hover:bg-gray-100 dark:hover:bg-gray-800"
-                          >
-                            <Heart size={16} />
-                            <span className="font-mono tabular-numbers">{post.likesCount || 0}</span>
-                          </button>
+                      <div className="flex items-center justify-between pt-3 border-t border-slate-100 dark:border-gray-800 text-xs font-semibold text-slate-500 dark:text-gray-400 flex-wrap gap-2">
+                        <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
+                          {renderReactionBar(post)}
                           <button
                             onClick={() => toggleComments(post.id)}
-                            className="flex items-center gap-1.5 py-1.5 px-3 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800"
+                            className="flex items-center gap-1.5 py-1.5 px-3 rounded-xl hover:bg-slate-100 dark:hover:bg-gray-800 transition"
                           >
                             <MessageCircle size={16} />
                             <span className="font-mono tabular-numbers">{post.commentsCount || 0}</span>
@@ -850,7 +1087,7 @@ export const FeedView: React.FC<FeedViewProps> = ({
                         </div>
                         <button
                           onClick={() => copyPostLink(post.id)}
-                          className="flex items-center gap-1.5 py-1.5 px-2.5 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 transition"
+                          className="flex items-center gap-1.5 py-1.5 px-2.5 rounded-xl hover:bg-slate-100 dark:hover:bg-gray-800 transition"
                         >
                           <Share2 size={14} />
                           <span>Share</span>
@@ -864,14 +1101,14 @@ export const FeedView: React.FC<FeedViewProps> = ({
                 return (
                   <article
                     key={post.id}
-                    className={`w-full max-w-full overflow-hidden break-words bg-white dark:bg-[#131927] border rounded-3xl p-4 sm:p-6 shadow-xs transition ${
+                    className={`w-full max-w-full overflow-hidden break-words bg-[#FFFFFF] dark:bg-[#131927] border rounded-3xl p-5 sm:p-7 shadow-[0_4px_24px_-4px_rgba(15,23,42,0.06)] transition ${
                       post.isBoosted
                         ? 'border-amber-400 dark:border-amber-500/60 ring-2 ring-amber-400/20 shadow-md shadow-amber-500/10'
-                        : 'border-slate-200/80 dark:border-gray-800 hover:border-blue-300 dark:hover:border-blue-900/60 hover:shadow-sm'
+                        : 'border-slate-200/80 dark:border-gray-800 hover:border-blue-300 dark:hover:border-blue-900/60 hover:shadow-[0_8px_30px_-4px_rgba(15,23,42,0.09)]'
                     }`}
                   >
                     {/* Author Header */}
-                    <div className="flex items-center justify-between mb-3.5">
+                    <div className="flex items-center justify-between mb-4">
                       <div className="flex items-center gap-3">
                         <img
                           src={
@@ -879,7 +1116,7 @@ export const FeedView: React.FC<FeedViewProps> = ({
                             `https://api.dicebear.com/7.x/shapes/svg?seed=${post.authorId}`
                           }
                           alt={post.authorName}
-                          className="w-10 h-10 rounded-full object-cover ring-2 ring-blue-500/20"
+                          className="w-10 h-10 rounded-full object-cover ring-2 ring-[#3B82F6]/20"
                         />
                         <div>
                           <div className="flex items-center gap-1.5 flex-wrap">
@@ -889,13 +1126,13 @@ export const FeedView: React.FC<FeedViewProps> = ({
                               size="md"
                             />
                             {post.authorUsername && (
-                              <span className="text-xs font-mono text-blue-600 dark:text-blue-400 font-semibold">
+                              <span className="text-xs font-mono text-[#3B82F6] dark:text-blue-400 font-semibold">
                                 {post.authorUsername}
                               </span>
                             )}
                             {/* Golden Boosted Badge */}
                             {post.isBoosted && (
-                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase bg-gradient-to-r from-amber-400 via-rose-500 to-purple-600 text-white shadow-xs animate-pulse">
+                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase bg-gradient-to-r from-amber-400 to-orange-500 text-white shadow-xs">
                                 <Rocket size={10} className="fill-white" />
                                 <span>Boosted</span>
                               </span>
@@ -908,7 +1145,7 @@ export const FeedView: React.FC<FeedViewProps> = ({
                               </span>
                             )}
                           </div>
-                          <div className="flex items-center gap-1.5 text-xs text-gray-400 mt-0.5">
+                          <div className="flex items-center gap-1.5 text-xs text-slate-400 mt-0.5">
                             <span className="font-mono tabular-numbers">
                               {new Date(post.createdAt).toLocaleDateString(undefined, {
                                 month: 'short',
@@ -928,7 +1165,7 @@ export const FeedView: React.FC<FeedViewProps> = ({
                         {isAuthor && !post.isBoosted && (
                           <button
                             onClick={() => setBoostingPost(post)}
-                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl text-[11px] font-bold bg-amber-50 hover:bg-amber-100 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border border-amber-300/60 dark:border-amber-800 transition active:scale-95 shadow-2xs"
+                            className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl text-[11px] font-bold bg-amber-50 hover:bg-amber-100 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border border-amber-300/60 dark:border-amber-800 transition active:scale-95 shadow-2xs"
                             title="Boost Post Reach for 2,000 TZS micro-payment"
                           >
                             <Rocket size={12} className="text-amber-500" />
@@ -939,7 +1176,7 @@ export const FeedView: React.FC<FeedViewProps> = ({
                         {canEdit && (
                           <button
                             onClick={() => handleStartEditPost(post)}
-                            className="p-1.5 text-gray-400 hover:text-purple-600 rounded-lg transition"
+                            className="p-1.5 text-slate-400 hover:text-[#3B82F6] rounded-xl transition"
                             title="Edit Wave Content (Pro Privilege)"
                           >
                             <Edit2 size={15} />
@@ -949,7 +1186,7 @@ export const FeedView: React.FC<FeedViewProps> = ({
                         {canDelete && (
                           <button
                             onClick={() => handleDeletePost(post.id)}
-                            className="p-1.5 text-gray-400 hover:text-rose-600 rounded-lg transition"
+                            className="p-1.5 text-slate-400 hover:text-rose-600 rounded-xl transition"
                             title={isAdmin && !isAuthor ? 'Admin Moderation: Delete' : 'Delete Post'}
                           >
                             <Trash2 size={16} />
@@ -960,18 +1197,18 @@ export const FeedView: React.FC<FeedViewProps> = ({
 
                     {/* Content or Inline Editor */}
                     {editingPostId === post.id ? (
-                      <div className="mb-3.5 p-3 rounded-2xl bg-purple-50/50 dark:bg-purple-950/30 border border-purple-200 dark:border-purple-800 space-y-2">
+                      <div className="mb-4 p-3.5 rounded-2xl bg-blue-50/50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 space-y-2.5">
                         <textarea
                           rows={3}
                           value={editPostContent}
                           onChange={(e) => setEditPostContent(e.target.value)}
-                          className="w-full p-2.5 rounded-xl bg-white dark:bg-gray-800 border border-purple-300 dark:border-purple-700 text-xs sm:text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500 resize-none"
+                          className="w-full p-3 rounded-xl bg-white dark:bg-gray-800 border border-blue-300 dark:border-blue-700 text-xs sm:text-sm text-[#0F172A] dark:text-white focus:outline-none focus:ring-2 focus:ring-[#3B82F6] resize-none"
                         />
                         <div className="flex items-center justify-end gap-2">
                           <button
                             type="button"
                             onClick={() => setEditingPostId(null)}
-                            className="px-3 py-1.5 rounded-lg text-xs font-semibold text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800"
+                            className="px-3.5 py-1.5 rounded-xl text-xs font-semibold text-slate-500 hover:bg-slate-100 dark:hover:bg-gray-800"
                           >
                             Cancel
                           </button>
@@ -979,7 +1216,7 @@ export const FeedView: React.FC<FeedViewProps> = ({
                             type="button"
                             disabled={isSavingPostEdit}
                             onClick={() => handleSavePostEdit(post.id)}
-                            className="px-4 py-1.5 rounded-lg bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs shadow-xs disabled:opacity-50"
+                            className="px-4 py-1.5 rounded-xl bg-[#3B82F6] hover:bg-blue-600 text-white font-bold text-xs shadow-xs disabled:opacity-50"
                           >
                             {isSavingPostEdit ? 'Saving...' : 'Save Wave'}
                           </button>
@@ -987,10 +1224,10 @@ export const FeedView: React.FC<FeedViewProps> = ({
                       </div>
                     ) : (
                       post.content && (
-                        <p className="text-sm text-gray-800 dark:text-gray-200 whitespace-pre-wrap leading-relaxed mb-3.5">
+                        <p className="text-sm sm:text-[15px] text-[#0F172A] dark:text-gray-200 whitespace-pre-wrap leading-relaxed mb-4">
                           {post.content}
                           {post.isEdited && (
-                            <span className="text-[10px] text-gray-400 italic ml-2">
+                            <span className="text-[10px] text-slate-400 italic ml-2">
                               (edited)
                             </span>
                           )}
@@ -1037,28 +1274,18 @@ export const FeedView: React.FC<FeedViewProps> = ({
                     )}
 
                     {/* Action Bar */}
-                    <div className="flex items-center justify-between pt-3 border-t border-gray-100 dark:border-gray-800 text-xs font-semibold text-gray-500 dark:text-gray-400">
-                      <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
-                        {/* Like */}
-                        <button
-                          onClick={() => handleToggleLike(post)}
-                          className={`flex items-center gap-1.5 py-1.5 px-3 rounded-xl transition active:scale-95 ${
-                            isLiked
-                              ? 'text-rose-600 bg-rose-50 dark:bg-rose-950/40 font-bold'
-                              : 'hover:bg-gray-100 dark:hover:bg-gray-800'
-                          }`}
-                        >
-                          <Heart size={16} className={isLiked ? 'fill-rose-600 text-rose-600' : ''} />
-                          <span className="font-mono tabular-numbers">{post.likesCount || 0}</span>
-                        </button>
+                    <div className="flex items-center justify-between pt-3 border-t border-slate-100 dark:border-gray-800 text-xs font-semibold text-slate-500 dark:text-gray-400 flex-wrap gap-2">
+                      <div className="flex items-center gap-2 sm:gap-2.5 flex-wrap">
+                        {/* Reactions: Like 👍, Heart ❤️, Fire 🔥 */}
+                        {renderReactionBar(post)}
 
                         {/* Comments */}
                         <button
                           onClick={() => toggleComments(post.id)}
                           className={`flex items-center gap-1.5 py-1.5 px-3 rounded-xl transition ${
                             isExpanded
-                              ? 'text-purple-600 bg-purple-50 dark:bg-purple-950/40'
-                              : 'hover:bg-gray-100 dark:hover:bg-gray-800'
+                              ? 'text-[#3B82F6] bg-blue-50 dark:bg-blue-950/40 font-semibold'
+                              : 'hover:bg-slate-100 dark:hover:bg-gray-800'
                           }`}
                         >
                           <MessageCircle size={16} />
@@ -1080,22 +1307,22 @@ export const FeedView: React.FC<FeedViewProps> = ({
                           onClick={() => handleToggleSave(post.id)}
                           className={`flex items-center gap-1.5 py-1.5 px-3 rounded-xl transition active:scale-95 ${
                             isSaved
-                              ? 'text-purple-600 bg-purple-50 dark:bg-purple-950/40 font-bold'
-                              : 'hover:bg-gray-100 dark:hover:bg-gray-800'
+                              ? 'text-[#3B82F6] bg-blue-50 dark:bg-blue-950/40 font-bold'
+                              : 'hover:bg-slate-100 dark:hover:bg-gray-800'
                           }`}
                           title={isSaved ? 'Saved to bookmarks' : 'Save post'}
                         >
-                          <Bookmark size={16} className={isSaved ? 'fill-purple-600 text-purple-600' : ''} />
+                          <Bookmark size={16} className={isSaved ? 'fill-[#3B82F6] text-[#3B82F6]' : ''} />
                           <span className="font-mono tabular-numbers">{post.savesCount || 0}</span>
                         </button>
                       </div>
 
                       <button
                         onClick={() => copyPostLink(post.id)}
-                        className="flex items-center gap-1.5 py-1.5 px-2.5 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 transition"
+                        className="flex items-center gap-1.5 py-1.5 px-2.5 rounded-xl hover:bg-slate-100 dark:hover:bg-gray-800 transition"
                       >
                         {copiedId === post.id ? (
-                          <Check size={14} className="text-emerald-500" />
+                          <Check size={14} className="text-[#10B981]" />
                         ) : (
                           <Share2 size={14} />
                         )}
@@ -1117,12 +1344,12 @@ export const FeedView: React.FC<FeedViewProps> = ({
                               if (e.key === 'Enter') handleAddComment(post.id);
                             }}
                             placeholder="Write a reply..."
-                            className="flex-1 py-2 px-3.5 rounded-xl bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-xs text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                            className="flex-1 py-2 px-3.5 rounded-xl bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-xs text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
                           />
                           <button
                             onClick={() => handleAddComment(post.id)}
                             disabled={!commentInput[post.id]?.trim()}
-                            className="p-2 rounded-xl bg-purple-600 text-white disabled:opacity-40 hover:bg-purple-700 transition"
+                            className="p-2 rounded-xl bg-gradient-to-r from-blue-600 to-emerald-600 text-white disabled:opacity-40 hover:from-blue-500 hover:to-emerald-500 transition shadow-xs"
                           >
                             <Send size={14} />
                           </button>
@@ -1145,7 +1372,7 @@ export const FeedView: React.FC<FeedViewProps> = ({
                                     `https://api.dicebear.com/7.x/shapes/svg?seed=${comment.authorId}`
                                   }
                                   alt={comment.authorName}
-                                  className="w-7 h-7 rounded-full object-cover ring-1 ring-purple-500/20 shrink-0 mt-0.5"
+                                  className="w-7 h-7 rounded-full object-cover ring-1 ring-blue-500/20 shrink-0 mt-0.5"
                                 />
                                 <div className="flex-1">
                                   <div className="flex items-center justify-between">

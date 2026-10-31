@@ -1,25 +1,16 @@
 import { initializeApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
-import { initializeFirestore, doc, getDocFromServer } from 'firebase/firestore';
-export const firebaseConfig = {
-  apiKey: "AIzaSyALKX8B-W86GCjdKYu7hZ_kpoBFL_eCJqI",
-  authDomain: "formal-photon-n48x0.firebaseapp.com",
-  projectId: "formal-photon-n48x0",
-  storageBucket: "formal-photon-n48x0.firebasestorage.app",
-  messagingSenderId: "330199068484",
-  appId: "1:330199068484:web:5376c71f8157d471e8f111"
-};
+import { getFirestore, setLogLevel, doc, getDoc } from 'firebase/firestore';
+import firebaseAppletConfig from '../firebase-applet-config.json';
+
+export const firebaseConfig = firebaseAppletConfig;
+
+// Silence transient WebChannel probe warnings so 10s offline fallback checks do not emit false-positive console errors
+setLogLevel('silent');
 
 const app = initializeApp(firebaseConfig);
 
-// Initialize Firestore with experimentalForceLongPolling to avoid 10s WebChannel timeout behind Cloud Run proxies & iframes
-export const db = initializeFirestore(
-  app,
-  {
-    experimentalForceLongPolling: true,
-  },
-  'ai-studio-remixremixwaveli-0bcdbee7-e3d1-46ba-ab1a-3448613d34ac'
-);
+export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId);
 
 export const auth = getAuth(app);
 
@@ -59,7 +50,7 @@ export interface FirestoreErrorInfo {
     emailVerified?: boolean | null;
     isAnonymous?: boolean | null;
     tenantId?: string | null;
-    providerInfo?: {
+    providerInfo: {
       providerId?: string | null;
       email?: string | null;
     }[];
@@ -83,7 +74,7 @@ export function handleFirestoreError(error: unknown, operationType: OperationTyp
     operationType,
     path
   };
-  console.error('Firestore Error:', JSON.stringify(errInfo));
+  console.warn('Firestore Operation Notice:', JSON.stringify(errInfo));
   throw new Error(JSON.stringify(errInfo));
 }
 
@@ -98,21 +89,12 @@ export function cleanFirestoreData<T extends Record<string, any>>(obj: T): Parti
   return result as Partial<T>;
 }
 
-// Test connection on boot per Firebase guidelines
+// Test connection on boot without forcing a blocking 10-second server-only probe
 export async function testConnection(): Promise<boolean> {
   try {
-    const timeoutPromise = new Promise<never>((_, reject) =>
-      setTimeout(() => reject(new Error('connection timeout')), 4000)
-    );
-    await Promise.race([
-      getDocFromServer(doc(db, 'test', 'connection')),
-      timeoutPromise
-    ]);
+    await getDoc(doc(db, 'test', 'connection'));
     return true;
-  } catch (error) {
-    if (error instanceof Error && (error.message.includes('offline') || error.message.includes('timeout'))) {
-      console.warn('Firebase client connection initialized (offline-ready).');
-    }
+  } catch {
     return false;
   }
 }

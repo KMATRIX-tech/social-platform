@@ -429,24 +429,24 @@ export const StudioEditorView: React.FC<StudioEditorViewProps> = ({ onNavigateTo
   return (
     <div className="max-w-6xl mx-auto py-6 px-4 sm:px-6 space-y-6">
       {/* Studio Header Banner */}
-      <div className="relative overflow-hidden rounded-3xl p-6 sm:p-8 bg-gradient-to-r from-purple-700 via-indigo-600 to-pink-600 text-white shadow-xl shadow-purple-950/20">
+      <div className="relative overflow-hidden rounded-3xl p-6 sm:p-8 bg-white border border-slate-200/80 text-[#0F172A] shadow-[0_4px_24px_-4px_rgba(15,23,42,0.06)]">
         <div className="relative z-10 flex items-center justify-between flex-wrap gap-4">
           <div>
-            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/20 backdrop-blur-md text-xs font-bold uppercase tracking-wider mb-2">
-              <Wand2 size={14} className="text-amber-300" />
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-50 text-[#3B82F6] border border-blue-200/70 text-xs font-bold uppercase tracking-wider mb-2">
+              <Wand2 size={14} className="text-[#10B981]" />
               <span>Wave Studio & Media Editor</span>
             </div>
-            <h2 className="text-2xl sm:text-3xl font-black tracking-tight">
+            <h2 className="text-2xl sm:text-3xl font-black tracking-tight text-[#0F172A]">
               Create, Edit & Publish
             </h2>
-            <p className="text-purple-100 text-xs sm:text-sm mt-1 max-w-xl font-medium">
+            <p className="text-slate-600 text-xs sm:text-sm mt-1 max-w-xl font-medium">
               Import pictures or videos, apply aesthetic visual filters, add custom text stickers & titles, attach online songs, and publish directly to the feed!
             </p>
           </div>
 
           <button
             onClick={onNavigateToFeed}
-            className="px-4 py-2.5 rounded-2xl bg-white/15 hover:bg-white/25 backdrop-blur-md text-white font-bold text-xs flex items-center gap-2 border border-white/20 transition active:scale-95"
+            className="px-4 py-2.5 rounded-2xl bg-[#F8FAFC] hover:bg-blue-50 text-[#0F172A] hover:text-[#3B82F6] font-bold text-xs flex items-center gap-2 border border-slate-200 transition active:scale-95 shadow-2xs"
           >
             <span>Back to Feed</span>
             <ArrowRight size={15} />
@@ -455,15 +455,15 @@ export const StudioEditorView: React.FC<StudioEditorViewProps> = ({ onNavigateTo
       </div>
 
       {studioNotice && (
-        <div className="p-4 rounded-2xl bg-amber-500/15 border border-amber-500/30 text-amber-200 text-xs sm:text-sm flex items-center justify-between gap-3 animate-in fade-in">
+        <div className="p-4 rounded-2xl bg-amber-50 border border-amber-200 text-amber-900 text-xs sm:text-sm flex items-center justify-between gap-3 animate-in fade-in">
           <div className="flex items-center gap-2">
-            <span className="text-amber-400 font-bold">⚠️ Notice:</span>
+            <span className="text-amber-600 font-bold">⚠️ Notice:</span>
             <span>{studioNotice}</span>
           </div>
           <button
             type="button"
             onClick={() => setStudioNotice(null)}
-            className="text-amber-300 hover:text-white text-xs px-2 py-1 rounded-lg hover:bg-amber-500/20"
+            className="text-amber-700 hover:text-amber-900 text-xs px-2 py-1 rounded-lg hover:bg-amber-100 font-semibold"
           >
             Dismiss
           </button>
@@ -474,11 +474,11 @@ export const StudioEditorView: React.FC<StudioEditorViewProps> = ({ onNavigateTo
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
         {/* Left: Interactive Canvas / Live Visual Editor Viewport */}
         <div className="lg:col-span-7 space-y-4">
-          <div className="bg-white dark:bg-[#131927] border-2 border-purple-200 dark:border-purple-900/60 rounded-3xl p-4 sm:p-5 shadow-sm">
+          <div className="bg-white border border-slate-200/80 rounded-3xl p-4 sm:p-6 shadow-[0_4px_24px_-4px_rgba(15,23,42,0.06)]">
             {/* Viewport Top Actions */}
-            <div className="flex items-center justify-between pb-3 mb-3 border-b border-gray-100 dark:border-gray-800">
-              <span className="text-xs font-bold text-gray-700 dark:text-gray-300 flex items-center gap-1.5">
-                <Layers size={14} className="text-purple-600" />
+            <div className="flex items-center justify-between pb-3 mb-3 border-b border-slate-100">
+              <span className="text-xs font-bold text-[#0F172A] flex items-center gap-1.5">
+                <Layers size={14} className="text-[#3B82F6]" />
                 <span>Live Studio Canvas</span>
               </span>
 
@@ -501,17 +501,17 @@ export const StudioEditorView: React.FC<StudioEditorViewProps> = ({ onNavigateTo
             </div>
 
             {/* Canvas Viewport Box */}
-            <div className="relative min-h-[380px] max-h-[550px] rounded-2xl overflow-hidden bg-gray-950 flex items-center justify-center border-2 border-dashed border-gray-300 dark:border-gray-800 group">
+            <div className="relative min-h-[380px] max-h-[550px] rounded-2xl overflow-hidden bg-[#F8FAFC] flex items-center justify-center border-2 border-dashed border-blue-200 group">
               {!mediaUrl ? (
                 <div className="text-center p-8 max-w-sm space-y-4">
-                  <div className="w-16 h-16 rounded-3xl bg-gradient-to-tr from-purple-600 via-indigo-600 to-pink-500 text-white mx-auto flex items-center justify-center shadow-lg shadow-purple-600/30">
+                  <div className="w-16 h-16 rounded-3xl bg-gradient-to-tr from-[#3B82F6] to-[#10B981] text-white mx-auto flex items-center justify-center shadow-lg shadow-blue-500/20">
                     <ImageIcon size={32} />
                   </div>
                   <div>
-                    <h3 className="font-extrabold text-base text-white mb-1">
+                    <h3 className="font-extrabold text-base text-[#0F172A] mb-1">
                       Start Your Creation
                     </h3>
-                    <p className="text-xs text-gray-400 leading-relaxed">
+                    <p className="text-xs text-slate-500 leading-relaxed">
                       Choose an image or video from your device or camera to customize with text, filters, and soundtracks.
                     </p>
                   </div>
@@ -542,7 +542,7 @@ export const StudioEditorView: React.FC<StudioEditorViewProps> = ({ onNavigateTo
                     <button
                       type="button"
                       onClick={() => fileInputRef.current?.click()}
-                      className="px-4 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs flex items-center gap-2 shadow-md transition active:scale-95"
+                      className="px-4 py-2.5 rounded-2xl bg-[#3B82F6] hover:bg-blue-600 text-white font-bold text-xs flex items-center gap-2 shadow-sm shadow-blue-500/20 transition active:scale-95"
                     >
                       <ImageIcon size={15} />
                       <span>Upload Image / Video</span>
@@ -551,7 +551,7 @@ export const StudioEditorView: React.FC<StudioEditorViewProps> = ({ onNavigateTo
                     <button
                       type="button"
                       onClick={() => cameraInputRef.current?.click()}
-                      className="px-4 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs flex items-center gap-2 shadow-md transition active:scale-95"
+                      className="px-4 py-2.5 rounded-2xl bg-[#10B981] hover:bg-emerald-600 text-white font-bold text-xs flex items-center gap-2 shadow-sm shadow-emerald-500/20 transition active:scale-95"
                     >
                       <Camera size={15} />
                       <span>Take Photo</span>
@@ -584,9 +584,9 @@ export const StudioEditorView: React.FC<StudioEditorViewProps> = ({ onNavigateTo
 
                     let bgClass = 'bg-transparent';
                     if (overlay.bgColor === 'dark') bgClass = 'bg-black/75 backdrop-blur-xs px-4 py-1.5 rounded-2xl';
-                    if (overlay.bgColor === 'light') bgClass = 'bg-white/90 text-gray-950 px-4 py-1.5 rounded-2xl shadow-md';
+                    if (overlay.bgColor === 'light') bgClass = 'bg-white/95 text-[#0F172A] px-4 py-1.5 rounded-2xl shadow-md';
                     if (overlay.bgColor === 'gradient')
-                      bgClass = 'bg-gradient-to-r from-purple-600 via-pink-600 to-amber-500 text-white px-4 py-1.5 rounded-2xl shadow-lg';
+                      bgClass = 'bg-gradient-to-r from-[#3B82F6] to-[#10B981] text-white px-4 py-1.5 rounded-2xl shadow-lg';
 
                     let sizeClass = 'text-base sm:text-lg';
                     if (overlay.fontSize === 'sm') sizeClass = 'text-xs sm:text-sm';
@@ -603,7 +603,7 @@ export const StudioEditorView: React.FC<StudioEditorViewProps> = ({ onNavigateTo
                         key={overlay.id}
                         onClick={() => setActiveTextId(overlay.id)}
                         className={`absolute -translate-x-1/2 -translate-y-1/2 cursor-pointer select-none transition-transform group/overlay ${
-                          isSelected ? 'ring-2 ring-amber-400 ring-offset-2 ring-offset-black' : ''
+                          isSelected ? 'ring-2 ring-[#3B82F6] ring-offset-2 ring-offset-white' : ''
                         }`}
                         style={{
                           left: `${overlay.x}%`,
@@ -652,13 +652,13 @@ export const StudioEditorView: React.FC<StudioEditorViewProps> = ({ onNavigateTo
         {/* Right: Studio Toolbars & Publishing Control */}
         <div className="lg:col-span-5 space-y-5">
           {/* Tool Switcher Tabs */}
-          <div className="bg-white dark:bg-[#131927] border border-gray-200/90 dark:border-gray-800 rounded-3xl p-1.5 flex items-center justify-between text-xs font-bold shadow-xs">
+          <div className="bg-white border border-slate-200/80 rounded-3xl p-1.5 flex items-center justify-between text-xs font-bold shadow-[0_4px_24px_-4px_rgba(15,23,42,0.05)]">
             <button
               onClick={() => setActiveTool('text')}
               className={`flex-1 py-2 px-2.5 rounded-2xl flex items-center justify-center gap-1.5 transition ${
                 activeTool === 'text'
-                  ? 'bg-purple-600 text-white shadow-xs'
-                  : 'text-gray-600 dark:text-gray-400 hover:text-gray-900'
+                  ? 'bg-[#3B82F6] text-white shadow-xs'
+                  : 'text-slate-600 hover:text-[#0F172A]'
               }`}
             >
               <Type size={14} />
@@ -669,8 +669,8 @@ export const StudioEditorView: React.FC<StudioEditorViewProps> = ({ onNavigateTo
               onClick={() => setActiveTool('filters')}
               className={`flex-1 py-2 px-2.5 rounded-2xl flex items-center justify-center gap-1.5 transition ${
                 activeTool === 'filters'
-                  ? 'bg-purple-600 text-white shadow-xs'
-                  : 'text-gray-600 dark:text-gray-400 hover:text-gray-900'
+                  ? 'bg-[#3B82F6] text-white shadow-xs'
+                  : 'text-slate-600 hover:text-[#0F172A]'
               }`}
             >
               <Sliders size={14} />
@@ -681,8 +681,8 @@ export const StudioEditorView: React.FC<StudioEditorViewProps> = ({ onNavigateTo
               onClick={() => setActiveTool('stickers')}
               className={`flex-1 py-2 px-2.5 rounded-2xl flex items-center justify-center gap-1.5 transition ${
                 activeTool === 'stickers'
-                  ? 'bg-purple-600 text-white shadow-xs'
-                  : 'text-gray-600 dark:text-gray-400 hover:text-gray-900'
+                  ? 'bg-[#3B82F6] text-white shadow-xs'
+                  : 'text-slate-600 hover:text-[#0F172A]'
               }`}
             >
               <Sparkles size={14} />
@@ -693,8 +693,8 @@ export const StudioEditorView: React.FC<StudioEditorViewProps> = ({ onNavigateTo
               onClick={() => setActiveTool('soundtrack')}
               className={`flex-1 py-2 px-2.5 rounded-2xl flex items-center justify-center gap-1.5 transition ${
                 activeTool === 'soundtrack'
-                  ? 'bg-purple-600 text-white shadow-xs'
-                  : 'text-gray-600 dark:text-gray-400 hover:text-gray-900'
+                  ? 'bg-[#3B82F6] text-white shadow-xs'
+                  : 'text-slate-600 hover:text-[#0F172A]'
               }`}
             >
               <Music size={14} />
@@ -703,16 +703,16 @@ export const StudioEditorView: React.FC<StudioEditorViewProps> = ({ onNavigateTo
           </div>
 
           {/* Tool Panels */}
-          <div className="bg-white dark:bg-[#131927] border border-gray-200/90 dark:border-gray-800 rounded-3xl p-5 shadow-xs space-y-4">
+          <div className="bg-white border border-slate-200/80 rounded-3xl p-5 shadow-[0_4px_24px_-4px_rgba(15,23,42,0.06)] space-y-4">
             {/* Panel 1: Text Overlays */}
             {activeTool === 'text' && (
               <div className="space-y-4 animate-fade-in">
                 <div className="flex items-center justify-between">
-                  <h4 className="text-sm font-bold text-gray-900 dark:text-white flex items-center gap-1.5">
-                    <Type size={16} className="text-purple-600" />
+                  <h4 className="text-sm font-bold text-[#0F172A] flex items-center gap-1.5">
+                    <Type size={16} className="text-[#3B82F6]" />
                     <span>Add Text Overlays</span>
                   </h4>
-                  <span className="text-[11px] text-gray-400">{textOverlays.length} added</span>
+                  <span className="text-[11px] text-slate-400">{textOverlays.length} added</span>
                 </div>
 
                 <div className="space-y-2">
@@ -725,23 +725,23 @@ export const StudioEditorView: React.FC<StudioEditorViewProps> = ({ onNavigateTo
                     }}
                     placeholder="Type words, title, or vibe... (e.g. Summer Sunset 🌅)"
                     maxLength={100}
-                    className="w-full px-3.5 py-2.5 rounded-xl bg-gray-50 dark:bg-gray-800/80 border border-gray-200 dark:border-gray-700 text-xs text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-[#F8FAFC] border border-slate-200 text-xs text-[#0F172A] placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#3B82F6]"
                   />
 
                   {/* Text Style Controls */}
                   <div className="grid grid-cols-2 gap-2 text-xs">
                     <div>
-                      <label className="text-[10px] font-bold uppercase text-gray-400 block mb-1">
+                      <label className="text-[10px] font-bold uppercase text-slate-400 block mb-1">
                         Font Size
                       </label>
-                      <div className="flex rounded-xl bg-gray-100 dark:bg-gray-800 p-1">
+                      <div className="flex rounded-xl bg-[#F8FAFC] border border-slate-200/80 p-1">
                         {(['sm', 'md', 'lg', 'xl'] as const).map((s) => (
                           <button
                             key={s}
                             type="button"
                             onClick={() => setTextFontSize(s)}
                             className={`flex-1 py-1 rounded-lg font-bold text-[10px] uppercase transition ${
-                              textFontSize === s ? 'bg-purple-600 text-white' : 'text-gray-500'
+                              textFontSize === s ? 'bg-[#3B82F6] text-white' : 'text-slate-500'
                             }`}
                           >
                             {s}
@@ -751,17 +751,17 @@ export const StudioEditorView: React.FC<StudioEditorViewProps> = ({ onNavigateTo
                     </div>
 
                     <div>
-                      <label className="text-[10px] font-bold uppercase text-gray-400 block mb-1">
+                      <label className="text-[10px] font-bold uppercase text-slate-400 block mb-1">
                         Background
                       </label>
-                      <div className="flex rounded-xl bg-gray-100 dark:bg-gray-800 p-1">
+                      <div className="flex rounded-xl bg-[#F8FAFC] border border-slate-200/80 p-1">
                         {(['none', 'dark', 'light', 'gradient'] as const).map((bg) => (
                           <button
                             key={bg}
                             type="button"
                             onClick={() => setTextBgColor(bg)}
                             className={`flex-1 py-1 rounded-lg font-bold text-[10px] uppercase transition ${
-                              textBgColor === bg ? 'bg-purple-600 text-white' : 'text-gray-500'
+                              textBgColor === bg ? 'bg-[#3B82F6] text-white' : 'text-slate-500'
                             }`}
                           >
                             {bg === 'gradient' ? 'Glow' : bg}
@@ -773,17 +773,17 @@ export const StudioEditorView: React.FC<StudioEditorViewProps> = ({ onNavigateTo
 
                   {/* Color Palette */}
                   <div>
-                    <label className="text-[10px] font-bold uppercase text-gray-400 block mb-1">
+                    <label className="text-[10px] font-bold uppercase text-slate-400 block mb-1">
                       Text Color
                     </label>
                     <div className="flex items-center gap-2">
-                      {['#FFFFFF', '#FDE047', '#F43F5E', '#38BDF8', '#A855F7', '#22C55E', '#111827'].map((c) => (
+                      {['#FFFFFF', '#FDE047', '#F43F5E', '#3B82F6', '#10B981', '#8B5CF6', '#0F172A'].map((c) => (
                         <button
                           key={c}
                           type="button"
                           onClick={() => setTextColor(c)}
                           className={`w-6 h-6 rounded-full border-2 transition ${
-                            textColor === c ? 'border-amber-400 scale-110' : 'border-white/50'
+                            textColor === c ? 'border-[#3B82F6] scale-110' : 'border-slate-300'
                           }`}
                           style={{ backgroundColor: c }}
                         />
@@ -795,7 +795,7 @@ export const StudioEditorView: React.FC<StudioEditorViewProps> = ({ onNavigateTo
                     type="button"
                     onClick={handleAddTextOverlay}
                     disabled={!newTextString.trim()}
-                    className="w-full py-2 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs flex items-center justify-center gap-1.5 transition disabled:opacity-40"
+                    className="w-full py-2.5 rounded-2xl bg-[#3B82F6] hover:bg-blue-600 text-white font-bold text-xs flex items-center justify-center gap-1.5 transition disabled:opacity-40 shadow-xs"
                   >
                     <span>+ Add Text to Canvas</span>
                   </button>
@@ -803,29 +803,29 @@ export const StudioEditorView: React.FC<StudioEditorViewProps> = ({ onNavigateTo
 
                 {/* Reposition active text overlay */}
                 {activeTextId && (
-                  <div className="p-3 rounded-2xl bg-purple-50/60 dark:bg-purple-950/30 border border-purple-200 dark:border-purple-800 space-y-2">
-                    <span className="text-[11px] font-bold text-purple-700 dark:text-purple-300 block">
+                  <div className="p-3 rounded-2xl bg-blue-50/70 border border-blue-200 space-y-2">
+                    <span className="text-[11px] font-bold text-[#3B82F6] block">
                       Reposition Active Overlay:
                     </span>
                     <div className="flex items-center gap-2">
                       <button
                         type="button"
                         onClick={() => handleUpdatePosition(activeTextId, 20)}
-                        className="flex-1 py-1 px-2 rounded-lg bg-white dark:bg-gray-800 border text-xs font-semibold"
+                        className="flex-1 py-1 px-2 rounded-lg bg-white border border-slate-200 text-xs font-semibold text-[#0F172A]"
                       >
                         Top
                       </button>
                       <button
                         type="button"
                         onClick={() => handleUpdatePosition(activeTextId, 50)}
-                        className="flex-1 py-1 px-2 rounded-lg bg-white dark:bg-gray-800 border text-xs font-semibold"
+                        className="flex-1 py-1 px-2 rounded-lg bg-white border border-slate-200 text-xs font-semibold text-[#0F172A]"
                       >
                         Center
                       </button>
                       <button
                         type="button"
                         onClick={() => handleUpdatePosition(activeTextId, 80)}
-                        className="flex-1 py-1 px-2 rounded-lg bg-white dark:bg-gray-800 border text-xs font-semibold"
+                        className="flex-1 py-1 px-2 rounded-lg bg-white border border-slate-200 text-xs font-semibold text-[#0F172A]"
                       >
                         Bottom
                       </button>
@@ -838,8 +838,8 @@ export const StudioEditorView: React.FC<StudioEditorViewProps> = ({ onNavigateTo
             {/* Panel 2: Visual Filters & Presets */}
             {activeTool === 'filters' && (
               <div className="space-y-4 animate-fade-in">
-                <h4 className="text-sm font-bold text-gray-900 dark:text-white flex items-center gap-1.5">
-                  <Sliders size={16} className="text-purple-600" />
+                <h4 className="text-sm font-bold text-[#0F172A] flex items-center gap-1.5">
+                  <Sliders size={16} className="text-[#3B82F6]" />
                   <span>Color & Mood Presets</span>
                 </h4>
 
@@ -856,11 +856,11 @@ export const StudioEditorView: React.FC<StudioEditorViewProps> = ({ onNavigateTo
                       }}
                       className={`p-2.5 rounded-xl border text-left transition ${
                         activeFilter.name === preset.name
-                          ? 'bg-purple-50 dark:bg-purple-950/40 border-purple-500 font-bold'
-                          : 'bg-gray-50 dark:bg-gray-800/60 border-gray-200 dark:border-gray-700'
+                          ? 'bg-blue-50 border-[#3B82F6] font-bold'
+                          : 'bg-[#F8FAFC] border-slate-200'
                       }`}
                     >
-                      <span className="text-xs text-gray-900 dark:text-white block">
+                      <span className="text-xs text-[#0F172A] block">
                         {preset.name}
                       </span>
                     </button>
@@ -870,7 +870,7 @@ export const StudioEditorView: React.FC<StudioEditorViewProps> = ({ onNavigateTo
                 {/* Sliders */}
                 <div className="space-y-3 pt-2">
                   <div>
-                    <div className="flex justify-between text-[11px] font-semibold text-gray-500 mb-1">
+                    <div className="flex justify-between text-[11px] font-semibold text-slate-500 mb-1">
                       <span>Brightness</span>
                       <span className="font-mono">{brightness}%</span>
                     </div>
@@ -880,12 +880,12 @@ export const StudioEditorView: React.FC<StudioEditorViewProps> = ({ onNavigateTo
                       max="150"
                       value={brightness}
                       onChange={(e) => setBrightness(Number(e.target.value))}
-                      className="w-full accent-purple-600"
+                      className="w-full accent-[#3B82F6]"
                     />
                   </div>
 
                   <div>
-                    <div className="flex justify-between text-[11px] font-semibold text-gray-500 mb-1">
+                    <div className="flex justify-between text-[11px] font-semibold text-slate-500 mb-1">
                       <span>Contrast</span>
                       <span className="font-mono">{contrast}%</span>
                     </div>
@@ -895,12 +895,12 @@ export const StudioEditorView: React.FC<StudioEditorViewProps> = ({ onNavigateTo
                       max="160"
                       value={contrast}
                       onChange={(e) => setContrast(Number(e.target.value))}
-                      className="w-full accent-purple-600"
+                      className="w-full accent-[#3B82F6]"
                     />
                   </div>
 
                   <div>
-                    <div className="flex justify-between text-[11px] font-semibold text-gray-500 mb-1">
+                    <div className="flex justify-between text-[11px] font-semibold text-slate-500 mb-1">
                       <span>Saturation</span>
                       <span className="font-mono">{saturation}%</span>
                     </div>
@@ -910,7 +910,7 @@ export const StudioEditorView: React.FC<StudioEditorViewProps> = ({ onNavigateTo
                       max="200"
                       value={saturation}
                       onChange={(e) => setSaturation(Number(e.target.value))}
-                      className="w-full accent-purple-600"
+                      className="w-full accent-[#3B82F6]"
                     />
                   </div>
                 </div>
@@ -920,11 +920,11 @@ export const StudioEditorView: React.FC<StudioEditorViewProps> = ({ onNavigateTo
             {/* Panel 3: Sticker Badges */}
             {activeTool === 'stickers' && (
               <div className="space-y-3 animate-fade-in">
-                <h4 className="text-sm font-bold text-gray-900 dark:text-white flex items-center gap-1.5">
-                  <Sparkles size={16} className="text-amber-500" />
+                <h4 className="text-sm font-bold text-[#0F172A] flex items-center gap-1.5">
+                  <Sparkles size={16} className="text-[#10B981]" />
                   <span>One-Tap Vibe Badges</span>
                 </h4>
-                <p className="text-xs text-gray-500 dark:text-gray-400">
+                <p className="text-xs text-slate-500">
                   Tap any badge to drop it directly onto your canvas:
                 </p>
 
@@ -934,7 +934,7 @@ export const StudioEditorView: React.FC<StudioEditorViewProps> = ({ onNavigateTo
                       key={sticker}
                       type="button"
                       onClick={() => handleAddSticker(sticker)}
-                      className="p-2.5 rounded-xl bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-950/40 dark:to-pink-950/40 border border-purple-200 dark:border-purple-800 text-xs font-bold text-purple-900 dark:text-purple-200 hover:scale-102 transition text-left"
+                      className="p-2.5 rounded-xl bg-[#F8FAFC] hover:bg-blue-50/70 border border-slate-200 hover:border-blue-300 text-xs font-bold text-[#0F172A] transition text-left"
                     >
                       {sticker}
                     </button>
@@ -947,25 +947,25 @@ export const StudioEditorView: React.FC<StudioEditorViewProps> = ({ onNavigateTo
             {activeTool === 'soundtrack' && (
               <div className="space-y-4 animate-fade-in">
                 <div className="flex items-center justify-between">
-                  <h4 className="text-sm font-bold text-gray-900 dark:text-white flex items-center gap-1.5">
-                    <Music size={16} className="text-purple-600" />
+                  <h4 className="text-sm font-bold text-[#0F172A] flex items-center gap-1.5">
+                    <Music size={16} className="text-[#3B82F6]" />
                     <span>Attach Soundtrack</span>
                   </h4>
                 </div>
 
                 {selectedSong ? (
-                  <div className="p-3 rounded-2xl bg-purple-50 dark:bg-purple-950/40 border border-purple-300 dark:border-purple-800 flex items-center justify-between gap-3">
+                  <div className="p-3 rounded-2xl bg-[#F8FAFC] border border-blue-200 flex items-center justify-between gap-3">
                     <div className="flex items-center gap-2.5 min-w-0">
                       <img
                         src={selectedSong.artworkUrl100}
                         alt={selectedSong.trackName}
-                        className="w-10 h-10 rounded-xl object-cover ring-1 ring-purple-400"
+                        className="w-10 h-10 rounded-xl object-cover ring-1 ring-blue-300"
                       />
                       <div className="min-w-0">
-                        <p className="text-xs font-bold text-gray-900 dark:text-white truncate">
+                        <p className="text-xs font-bold text-[#0F172A] truncate">
                           {selectedSong.trackName}
                         </p>
-                        <p className="text-[11px] text-gray-500 dark:text-gray-400 truncate">
+                        <p className="text-[11px] text-slate-500 truncate">
                           {selectedSong.artistName}
                         </p>
                       </div>
@@ -975,36 +975,36 @@ export const StudioEditorView: React.FC<StudioEditorViewProps> = ({ onNavigateTo
                       <button
                         type="button"
                         onClick={() => setIsSongSelectorOpen(true)}
-                        className="px-2.5 py-1 rounded-xl bg-purple-600 text-white text-xs font-semibold"
+                        className="px-2.5 py-1 rounded-xl bg-[#3B82F6] text-white text-xs font-semibold"
                       >
                         Change
                       </button>
                       <button
                         type="button"
                         onClick={() => setSelectedSong(null)}
-                        className="p-1 text-gray-400 hover:text-rose-600"
+                        className="p-1 text-slate-400 hover:text-rose-600"
                       >
                         <X size={15} />
                       </button>
                     </div>
                   </div>
                 ) : (
-                  <div className="p-6 rounded-2xl bg-purple-50/50 dark:bg-purple-950/20 border border-purple-200 dark:border-purple-900/60 text-center space-y-3">
-                    <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-purple-600 to-pink-500 text-white mx-auto flex items-center justify-center">
+                  <div className="p-6 rounded-2xl bg-[#F8FAFC] border border-slate-200 text-center space-y-3">
+                    <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-[#3B82F6] to-[#10B981] text-white mx-auto flex items-center justify-center shadow-sm">
                       <Music size={22} />
                     </div>
                     <div>
-                      <p className="text-xs font-bold text-gray-800 dark:text-gray-200">
+                      <p className="text-xs font-bold text-[#0F172A]">
                         No Song Attached
                       </p>
-                      <p className="text-[11px] text-gray-500 dark:text-gray-400">
+                      <p className="text-[11px] text-slate-500">
                         Search millions of tracks online to add music to your post.
                       </p>
                     </div>
                     <button
                       type="button"
                       onClick={() => setIsSongSelectorOpen(true)}
-                      className="px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs flex items-center gap-1.5 mx-auto transition"
+                      className="px-4 py-2 rounded-2xl bg-[#3B82F6] hover:bg-blue-600 text-white font-bold text-xs flex items-center gap-1.5 mx-auto transition shadow-xs"
                     >
                       <Disc size={14} />
                       <span>Search Online Music</span>
@@ -1016,9 +1016,9 @@ export const StudioEditorView: React.FC<StudioEditorViewProps> = ({ onNavigateTo
           </div>
 
           {/* Caption & Publish Area */}
-          <div className="bg-white dark:bg-[#131927] border border-gray-200/90 dark:border-gray-800 rounded-3xl p-5 shadow-xs space-y-3.5">
+          <div className="bg-white border border-slate-200/80 rounded-3xl p-5 shadow-[0_4px_24px_-4px_rgba(15,23,42,0.06)] space-y-3.5">
             <div>
-              <label className="text-xs font-bold text-gray-700 dark:text-gray-300 block mb-1">
+              <label className="text-xs font-bold text-[#0F172A] block mb-1">
                 Post Caption:
               </label>
               <textarea
@@ -1027,23 +1027,23 @@ export const StudioEditorView: React.FC<StudioEditorViewProps> = ({ onNavigateTo
                 placeholder="Write your story, caption, or thoughts to accompany this post..."
                 rows={3}
                 maxLength={2000}
-                className="w-full p-3 rounded-2xl bg-gray-50 dark:bg-gray-800/80 border border-gray-200 dark:border-gray-700 text-xs text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500 resize-none"
+                className="w-full p-3 rounded-2xl bg-[#F8FAFC] border border-slate-200 text-xs text-[#0F172A] placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#3B82F6] resize-none"
               />
             </div>
 
             {/* Fast Progress Bar */}
             {isPublishing && (
-              <div className="space-y-1.5 p-3 rounded-2xl bg-purple-50 dark:bg-purple-950/40 border border-purple-200 dark:border-purple-800">
-                <div className="flex items-center justify-between text-xs font-bold text-purple-900 dark:text-purple-200">
+              <div className="space-y-1.5 p-3 rounded-2xl bg-blue-50/70 border border-blue-200">
+                <div className="flex items-center justify-between text-xs font-bold text-[#0F172A]">
                   <span className="flex items-center gap-1.5">
-                    <Zap size={14} className="text-amber-500 fill-amber-500 animate-bounce" />
+                    <Zap size={14} className="text-[#10B981] fill-[#10B981] animate-bounce" />
                     <span>Rendering & Publishing to Feed...</span>
                   </span>
                   <span className="font-mono">{publishProgress}%</span>
                 </div>
-                <div className="w-full h-2 bg-purple-200 dark:bg-purple-900 rounded-full overflow-hidden">
+                <div className="w-full h-2 bg-blue-100 rounded-full overflow-hidden">
                   <div
-                    className="h-full bg-gradient-to-r from-purple-600 via-indigo-600 to-pink-500 transition-all duration-150 rounded-full"
+                    className="h-full bg-gradient-to-r from-[#3B82F6] to-[#10B981] transition-all duration-150 rounded-full"
                     style={{ width: `${publishProgress}%` }}
                   />
                 </div>
@@ -1051,15 +1051,15 @@ export const StudioEditorView: React.FC<StudioEditorViewProps> = ({ onNavigateTo
             )}
 
             {publishSuccess ? (
-              <div className="p-3 rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-300 dark:border-emerald-700 text-emerald-800 dark:text-emerald-200 text-xs font-bold flex items-center justify-between">
+              <div className="p-3 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-900 text-xs font-bold flex items-center justify-between">
                 <span className="flex items-center gap-1.5">
-                  <Check size={16} className="text-emerald-500" />
+                  <Check size={16} className="text-[#10B981]" />
                   <span>Published to WaveFeed! Redirecting...</span>
                 </span>
                 <button
                   type="button"
                   onClick={onNavigateToFeed}
-                  className="px-3 py-1 rounded-xl bg-emerald-600 text-white text-xs font-bold"
+                  className="px-3 py-1 rounded-xl bg-[#10B981] text-white text-xs font-bold"
                 >
                   View Feed →
                 </button>
@@ -1069,7 +1069,7 @@ export const StudioEditorView: React.FC<StudioEditorViewProps> = ({ onNavigateTo
                 type="button"
                 onClick={handlePublishToFeed}
                 disabled={isPublishing || (!mediaUrl && !caption.trim() && !selectedSong)}
-                className="w-full py-3 rounded-2xl bg-gradient-to-r from-purple-600 via-indigo-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white font-black text-sm flex items-center justify-center gap-2 shadow-lg shadow-purple-600/30 transition active:scale-98 disabled:opacity-40"
+                className="w-full py-3 rounded-2xl bg-[#3B82F6] hover:bg-blue-600 text-white font-black text-sm flex items-center justify-center gap-2 shadow-md shadow-blue-500/20 transition active:scale-98 disabled:opacity-40"
               >
                 <Send size={16} />
                 <span>Publish to WaveFeed 🌊</span>

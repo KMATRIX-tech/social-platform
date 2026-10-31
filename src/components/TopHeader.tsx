@@ -56,14 +56,14 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
   const currentTabInfo = TAB_TITLES[activeTab] || { title: 'WaveLink', subtitle: 'Social Platform' };
 
   return (
-    <header className="sticky top-0 z-20 w-full backdrop-blur-md bg-white/95 dark:bg-[#0B0F19]/95 border-b border-slate-200/80 dark:border-gray-800/80 transition-colors shadow-2xs">
+    <header className="sticky top-0 z-20 w-full backdrop-blur-md bg-[#FFFFFF]/95 dark:bg-[#0B0F19]/95 border-b border-slate-200/80 dark:border-gray-800/80 transition-colors shadow-[0_2px_12px_-2px_rgba(15,23,42,0.04)]">
       <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-14 sm:h-16 gap-2 sm:gap-3">
           {/* Left: Mobile Brand & Menu, or Desktop View Title */}
           <div className="flex items-center gap-2.5 shrink-0">
             <button
               onClick={onOpenMobileMenu}
-              className="p-1.5 -ml-1 rounded-xl text-slate-600 dark:text-gray-300 hover:bg-slate-100 dark:hover:bg-gray-800 md:hidden transition"
+              className="p-2 -ml-1 rounded-xl text-[#0F172A] dark:text-gray-300 hover:bg-[#F8FAFC] dark:hover:bg-gray-800 md:hidden transition"
               title="Open Navigation"
             >
               <Menu size={20} />
@@ -75,11 +75,11 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
                 onClick={() => onNavigateTab && onNavigateTab('feed')}
                 className="flex items-center gap-1.5 cursor-pointer"
               >
-                <div className="p-1.5 rounded-xl bg-gradient-to-tr from-blue-500 to-emerald-500 text-white shadow-xs">
+                <div className="p-1.5 rounded-xl bg-gradient-to-tr from-[#3B82F6] to-[#10B981] text-white shadow-xs">
                   <Waves size={16} />
                 </div>
-                <span className="font-black text-sm sm:text-base tracking-tight bg-gradient-to-r from-blue-600 via-sky-500 to-emerald-600 bg-clip-text text-transparent hidden sm:inline">
-                  WaveLink
+                <span className="font-black text-sm sm:text-base tracking-tight text-[#0F172A] dark:text-white hidden sm:inline">
+                  Wave<span className="text-[#3B82F6]">Link</span>
                 </span>
               </div>
             </div>
@@ -87,11 +87,11 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
             {/* Desktop View Title (>= 768px) */}
             <div className="hidden lg:flex flex-col">
               <div className="flex items-center gap-2">
-                <h1 className="font-extrabold text-base lg:text-lg text-slate-900 dark:text-white tracking-tight">
+                <h1 className="font-extrabold text-base lg:text-lg text-[#0F172A] dark:text-white tracking-tight">
                   {currentTabInfo.title}
                 </h1>
                 {isProUser && (
-                  <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold uppercase bg-emerald-50 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-300/60 flex items-center gap-1">
+                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase bg-emerald-50 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-200 flex items-center gap-1">
                     <Crown size={11} className="text-amber-500" />
                     Pro
                   </span>
@@ -110,7 +110,7 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
                   </span>
                 )}
               </div>
-              <span className="text-[10px] text-slate-500 dark:text-gray-400 -mt-0.5 font-medium truncate max-w-[200px]">
+              <span className="text-[11px] text-slate-500 dark:text-gray-400 -mt-0.5 font-medium truncate max-w-[240px]">
                 {currentTabInfo.subtitle}
               </span>
             </div>
@@ -138,7 +138,7 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
             <button
               onClick={cycleTheme}
               title={`Switch Appearance (Current: ${theme})`}
-              className="px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-semibold bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200 border border-gray-200 dark:border-gray-700 flex items-center gap-1.5 transition active:scale-95 shadow-2xs"
+              className="px-3 py-1.5 rounded-xl text-xs font-bold bg-[#F8FAFC] hover:bg-slate-100 dark:bg-gray-800 dark:hover:bg-gray-700 text-[#0F172A] dark:text-gray-200 border border-slate-200/90 dark:border-gray-700 flex items-center gap-1.5 transition active:scale-95 shadow-2xs"
             >
               {theme === 'light' ? (
                 <>
@@ -147,12 +147,12 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
                 </>
               ) : theme === 'dark' ? (
                 <>
-                  <Moon size={15} className="text-purple-400" />
+                  <Moon size={15} className="text-[#3B82F6]" />
                   <span className="hidden sm:inline">Dark Mode</span>
                 </>
               ) : (
                 <>
-                  <Laptop size={15} className="text-blue-500" />
+                  <Laptop size={15} className="text-[#10B981]" />
                   <span className="hidden sm:inline">Auto (Device)</span>
                 </>
               )}

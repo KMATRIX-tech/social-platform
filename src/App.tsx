@@ -68,14 +68,14 @@ function MainApp() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-[#F8FAFC] dark:bg-[#0B0F19] text-[#0F172A] dark:text-gray-100">
-        <div className="p-4 rounded-3xl bg-gradient-to-tr from-blue-500 to-emerald-500 text-white shadow-xl shadow-blue-500/25 mb-4 animate-bounce">
+      <div className="min-h-screen flex flex-col items-center justify-center bg-[#F8FAFC] text-[#0F172A]">
+        <div className="p-4 rounded-3xl bg-gradient-to-tr from-[#3B82F6] to-[#10B981] text-white shadow-xl shadow-blue-500/20 mb-4 animate-bounce">
           <Waves size={36} />
         </div>
-        <h2 className="text-xl font-bold tracking-tight bg-gradient-to-r from-blue-600 via-sky-500 to-emerald-600 bg-clip-text text-transparent">
+        <h2 className="text-xl font-extrabold tracking-tight text-[#0F172A]">
           WaveLink
         </h2>
-        <p className="text-xs text-slate-500 mt-1 font-medium">Resuming your live session...</p>
+        <p className="text-xs text-slate-500 mt-1 font-medium">Opening your bright social space...</p>
       </div>
     );
   }

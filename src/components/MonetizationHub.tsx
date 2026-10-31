@@ -41,7 +41,9 @@ import {
   Key,
   Smartphone,
   Lock,
-  Percent
+  Percent,
+  Copy,
+  Check
 } from 'lucide-react';
 
 interface MonetizationHubProps {
@@ -52,8 +54,42 @@ interface MonetizationHubProps {
 export const MonetizationHub: React.FC<MonetizationHubProps> = ({
   onNavigateToFeed
 }) => {
-  const { currentUser, userProfile, isAdmin, isProEffective, isExemptFromPayments } = useAuth();
+  const { currentUser, userProfile, isAdmin, isProEffective, isExemptFromPayments, activateHarvestPass, showGlobalToast } = useAuth();
   const isProUser = isProEffective;
+  const [copiedAdminPhone, setCopiedAdminPhone] = useState(false);
+  const [hubPromoCode, setHubPromoCode] = useState('');
+  const [isRedeemingHubPromo, setIsRedeemingHubPromo] = useState(false);
+  const [hubPromoError, setHubPromoError] = useState<string | null>(null);
+
+  const handleCopyAdminNumber = () => {
+    const adminNum = '0787473334';
+    try {
+      if (navigator?.clipboard?.writeText) {
+        navigator.clipboard.writeText(adminNum).catch(() => {});
+      }
+    } catch (_) {}
+    setCopiedAdminPhone(true);
+    showGlobalToast('Copied 0787473334 to clipboard!');
+    setTimeout(() => setCopiedAdminPhone(false), 3000);
+  };
+
+  const handleRedeemHubPromo = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const clean = hubPromoCode.trim().toUpperCase();
+    if (!clean) return;
+    setHubPromoError(null);
+    setIsRedeemingHubPromo(true);
+    try {
+      if (clean === 'HARVEST2026') {
+        await activateHarvestPass();
+        setHubPromoCode('');
+      } else {
+        setHubPromoError('Invalid code. Enter HARVEST2026 for a 1-year VIP pass.');
+      }
+    } finally {
+      setIsRedeemingHubPromo(false);
+    }
+  };
 
   // Active section tab inside MonetizationHub
   const [activeSection, setActiveSection] = useState<'tiers' | 'tipping' | 'boost' | 'affiliate'>('tiers');
@@ -464,7 +500,6 @@ export const MonetizationHub: React.FC<MonetizationHubProps> = ({
           <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
             {PRO_TIERS.map((tier) => {
               const isSelected = selectedTierId === tier.id;
-              const isUserCurrent = userProfile?.proPlan === tier.id;
 
               return (
                 <div
@@ -472,63 +507,63 @@ export const MonetizationHub: React.FC<MonetizationHubProps> = ({
                   onClick={() => setSelectedTierId(tier.id)}
                   className={`cursor-pointer rounded-3xl p-6 border-2 transition-all relative flex flex-col justify-between ${
                     isSelected
-                      ? 'border-purple-600 bg-white dark:bg-[#131927] shadow-xl ring-4 ring-purple-500/15 scale-102'
-                      : 'border-gray-200 dark:border-gray-800 bg-white/70 dark:bg-[#131927]/70 hover:border-purple-300'
+                      ? 'border-[#3B82F6] bg-white shadow-[0_12px_32px_-8px_rgba(59,130,246,0.16)] ring-4 ring-blue-500/10 scale-102'
+                      : 'border-slate-200/80 bg-white hover:border-blue-300 shadow-[0_4px_24px_-4px_rgba(15,23,42,0.05)]'
                   }`}
                 >
                   {/* Discount / Popular Badges */}
                   {tier.discountBadge && (
-                    <span className="absolute -top-3 right-6 px-3 py-1 rounded-full text-xs font-black bg-gradient-to-r from-amber-500 to-rose-500 text-white shadow-md">
+                    <span className="absolute -top-3 right-6 px-3 py-1 rounded-full text-xs font-black bg-[#10B981] text-white shadow-sm">
                       {tier.discountBadge}
                     </span>
                   )}
                   {tier.id === 'monthly' && (
-                    <span className="absolute -top-3 left-6 px-3 py-1 rounded-full text-xs font-black bg-purple-600 text-white shadow-md flex items-center gap-1">
+                    <span className="absolute -top-3 left-6 px-3 py-1 rounded-full text-xs font-black bg-[#3B82F6] text-white shadow-sm flex items-center gap-1">
                       <Sparkles size={11} />
                       <span>Default Pro Plan</span>
                     </span>
                   )}
 
                   <div>
-                    <h3 className="text-lg font-black text-gray-900 dark:text-white mt-1">
+                    <h3 className="text-lg font-black text-[#0F172A] mt-1">
                       {tier.name}
                     </h3>
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 line-clamp-2">
+                    <p className="text-xs text-slate-500 mt-1 line-clamp-2">
                       {tier.tagline}
                     </p>
 
-                    <div className="mt-4 mb-5 pt-3 border-t border-gray-100 dark:border-gray-800">
+                    <div className="mt-4 mb-5 pt-3 border-t border-slate-100">
                       <div className="flex items-baseline gap-1">
-                        <span className="text-2xl sm:text-3xl font-black text-purple-600 dark:text-purple-400 font-mono">
+                        <span className="text-2xl sm:text-3xl font-black text-[#3B82F6] font-mono">
                           TZS {tier.priceTZS.toLocaleString()}
                         </span>
-                        <span className="text-xs text-gray-400 font-medium">
+                        <span className="text-xs text-slate-400 font-medium">
                           /{tier.billingPeriod.replace('per ', '')}
                         </span>
                       </div>
-                      <span className="text-[11px] text-gray-400 font-medium">
+                      <span className="text-[11px] text-slate-400 font-medium">
                         ≈ ${tier.priceUSD} USD
                       </span>
                     </div>
 
                     {/* Features list */}
-                    <div className="space-y-2 pt-2 border-t border-gray-100 dark:border-gray-800">
+                    <div className="space-y-2 pt-2 border-t border-slate-100">
                       {tier.features.map((feat, idx) => (
-                        <div key={idx} className="flex items-start gap-2 text-xs text-gray-700 dark:text-gray-300">
-                          <CheckCircle2 size={14} className="text-purple-600 shrink-0 mt-0.5" />
+                        <div key={idx} className="flex items-start gap-2 text-xs text-slate-700">
+                          <CheckCircle2 size={14} className="text-[#10B981] shrink-0 mt-0.5" />
                           <span>{feat}</span>
                         </div>
                       ))}
                     </div>
                   </div>
 
-                  <div className="pt-5 mt-5 border-t border-gray-100 dark:border-gray-800">
+                  <div className="pt-5 mt-5 border-t border-slate-100">
                     <button
                       type="button"
-                      className={`w-full py-2.5 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition ${
+                      className={`w-full py-2.5 rounded-2xl font-bold text-xs flex items-center justify-center gap-1.5 transition ${
                         isSelected
-                          ? 'bg-purple-600 text-white shadow-md'
-                          : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300'
+                          ? 'bg-[#3B82F6] text-white shadow-sm shadow-blue-500/20'
+                          : 'bg-[#F8FAFC] text-[#0F172A] border border-slate-200 hover:bg-blue-50'
                       }`}
                     >
                       <span>{isSelected ? '✓ Plan Selected' : `Select ${tier.name}`}</span>
@@ -539,7 +574,7 @@ export const MonetizationHub: React.FC<MonetizationHubProps> = ({
             })}
           </div>
 
-          {/* Clean Manual Lipa kwa Simu Till Card */}
+          {/* Official Admin Direct Mobile Money Payment Card */}
           <div className="bg-white border-2 border-blue-200/90 rounded-3xl p-6 sm:p-8 shadow-sm">
             <div className="flex items-center justify-between pb-4 border-b border-slate-100 mb-6 flex-wrap gap-3">
               <div className="flex items-center gap-3">
@@ -547,10 +582,10 @@ export const MonetizationHub: React.FC<MonetizationHubProps> = ({
                   <Smartphone size={22} />
                 </div>
                 <div>
-                  <h4 className="font-extrabold text-base text-slate-900 flex items-center gap-2">
-                    <span>Manual Lipa kwa Simu / Mobile Money</span>
-                    <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase bg-emerald-100 text-emerald-800 border border-emerald-200">
-                      Till: [YOUR_TILL_NUMBER]
+                  <h4 className="font-extrabold text-base text-slate-900 flex items-center gap-2 flex-wrap">
+                    <span>WaveLink Official Admin Mobile Money</span>
+                    <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase bg-emerald-100 text-emerald-800 border border-emerald-200 font-mono tabular-nums">
+                      0787473334
                     </span>
                   </h4>
                   <p className="text-xs text-slate-500">
@@ -566,37 +601,71 @@ export const MonetizationHub: React.FC<MonetizationHubProps> = ({
                   className="px-4 py-2 rounded-2xl bg-gradient-to-r from-blue-600 to-emerald-600 hover:from-blue-500 hover:to-emerald-500 text-white text-xs font-bold shadow-md shadow-blue-500/20 transition active:scale-95 flex items-center gap-1.5"
                 >
                   <Gift size={14} />
-                  <span>Enter Coupon or Submit Ref Code</span>
+                  <span>Submit Transaction ID or Coupon</span>
                 </button>
               </div>
             </div>
 
-            {/* Till Instruction Box */}
+            {/* Official Admin Number & Promo Box */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="p-5 rounded-2xl bg-gradient-to-br from-blue-50/70 via-sky-50/40 to-emerald-50/50 border border-blue-200/80 space-y-2">
-                <div className="text-[11px] uppercase tracking-wider font-extrabold text-slate-500">
-                  Send TZS 18,000 via Lipa kwa Simu to Till Number:
+              <div className="p-5 rounded-2xl bg-gradient-to-br from-blue-50/70 via-sky-50/40 to-emerald-50/50 border border-blue-200/80 space-y-3">
+                <div className="text-xs font-bold text-slate-800 leading-relaxed">
+                  Send payment to <strong className="text-blue-700 font-black">WaveLink Official Admin:</strong>{' '}
+                  <span className="font-mono font-black text-emerald-600 tabular-nums">0787473334</span>{' '}
+                  <span className="text-slate-600">(Airtel Money / M-Pesa / Tigo Pesa).</span>
                 </div>
-                <div className="text-2xl font-black font-mono text-blue-600 tracking-wider">
-                  [YOUR_TILL_NUMBER]
+                <div className="flex items-center justify-between gap-3 p-3 rounded-xl bg-white border border-emerald-200/80">
+                  <div>
+                    <div className="text-[10px] uppercase font-extrabold text-emerald-700 tracking-wider">
+                      WaveLink Official Admin
+                    </div>
+                    <div className="text-2xl font-black font-mono text-emerald-600 tracking-wider tabular-nums select-all">
+                      0787473334
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleCopyAdminNumber}
+                    className="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-extrabold flex items-center gap-1.5 transition active:scale-95 shrink-0"
+                  >
+                    {copiedAdminPhone ? <Check size={14} /> : <Copy size={14} />}
+                    <span>{copiedAdminPhone ? 'Copied!' : 'Copy Number'}</span>
+                  </button>
                 </div>
-                <div className="text-xs text-slate-600 font-medium">
-                  Merchant Name: <strong className="text-slate-900">WaveLink</strong>
-                </div>
-                <div className="pt-2 text-xs text-slate-500 leading-relaxed">
-                  Pay directly from Airtel Money (*150*60#), Tigo Pesa (*150*01#), or M-Pesa (*150*00#).
+                <div className="text-xs text-slate-600 leading-relaxed">
+                  After sending funds on your mobile phone, paste the Transaction ID from your operator&apos;s SMS receipt in the Payment Modal.
                 </div>
               </div>
 
               <div className="p-5 rounded-2xl bg-slate-50 border border-slate-200/90 flex flex-col justify-between space-y-4">
-                <div>
-                  <div className="flex items-center gap-2 text-xs font-bold text-slate-900 mb-1">
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2 text-xs font-bold text-slate-900">
                     <ShieldCheck size={16} className="text-emerald-500" />
-                    <span>Direct Admin Verification</span>
+                    <span>Direct Admin Verification &amp; Promo Code</span>
                   </div>
                   <p className="text-xs text-slate-500 leading-relaxed">
-                    After completing the payment on your phone, click below to paste your SMS Transaction Reference ID or enter coupon code <strong className="text-emerald-600 font-mono">HARVEST2026</strong> for an instant free pass!
+                    Have a promo code? Enter <strong className="text-emerald-600 font-mono">HARVEST2026</strong> below for an instant 1-year Harvest Pass, or open the payment modal to submit your SMS Transaction ID.
                   </p>
+
+                  <form onSubmit={handleRedeemHubPromo} className="flex items-center gap-2">
+                    <input
+                      type="text"
+                      value={hubPromoCode}
+                      onChange={(e) => setHubPromoCode(e.target.value)}
+                      placeholder="Enter code (HARVEST2026)"
+                      className="flex-1 px-3 py-2 rounded-xl bg-white border border-slate-200 text-slate-900 placeholder-slate-400 font-mono text-xs uppercase focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
+                    />
+                    <button
+                      type="submit"
+                      disabled={isRedeemingHubPromo || !hubPromoCode.trim()}
+                      className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-extrabold text-xs transition shrink-0"
+                    >
+                      {isRedeemingHubPromo ? 'Activating...' : 'Redeem'}
+                    </button>
+                  </form>
+                  {hubPromoError && (
+                    <p className="text-[11px] text-rose-600 font-semibold">{hubPromoError}</p>
+                  )}
                 </div>
 
                 <button
@@ -621,97 +690,97 @@ export const MonetizationHub: React.FC<MonetizationHubProps> = ({
         <div className="space-y-6">
           {/* Creator Earnings Breakdown Card */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div className="bg-white dark:bg-[#131927] border border-gray-200 dark:border-gray-800 rounded-3xl p-5 shadow-xs">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-gray-400 block mb-1">
+            <div className="bg-white border border-slate-200/80 rounded-3xl p-5 shadow-[0_4px_24px_-4px_rgba(15,23,42,0.06)]">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 block mb-1">
                 Gross Tips Received
               </span>
-              <div className="text-2xl font-black font-mono tabular-numbers text-gray-900 dark:text-white">
+              <div className="text-2xl font-black font-mono tabular-numbers text-[#0F172A]">
                 TZS {grossTipsTZS.toLocaleString()}
               </div>
-              <span className="text-[10px] text-gray-500 mt-1 block">
+              <span className="text-[10px] text-slate-500 mt-1 block">
                 Total community tips sent to your waves
               </span>
             </div>
 
-            <div className="bg-white dark:bg-[#131927] border border-gray-200 dark:border-gray-800 rounded-3xl p-5 shadow-xs">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400 block mb-1">
+            <div className="bg-white border border-slate-200/80 rounded-3xl p-5 shadow-[0_4px_24px_-4px_rgba(15,23,42,0.06)]">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-amber-600 block mb-1">
                 Platform Processing Fee (10%)
               </span>
-              <div className="text-2xl font-black font-mono tabular-numbers text-amber-600 dark:text-amber-400">
+              <div className="text-2xl font-black font-mono tabular-numbers text-amber-600">
                 TZS {platformFeeDeductedTZS.toLocaleString()}
               </div>
-              <span className="text-[10px] text-gray-500 mt-1 block">
+              <span className="text-[10px] text-slate-500 mt-1 block">
                 Automated 10% gateway and platform charge
               </span>
             </div>
 
-            <div className="bg-white dark:bg-[#131927] border border-purple-200 dark:border-purple-800 rounded-3xl p-5 shadow-xs bg-purple-50/30 dark:bg-purple-950/20">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-purple-600 dark:text-purple-400 block mb-1">
+            <div className="bg-white border border-blue-200 rounded-3xl p-5 shadow-[0_4px_24px_-4px_rgba(15,23,42,0.06)]">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-[#3B82F6] block mb-1">
                 Net Creator Payout (90%)
               </span>
-              <div className="text-2xl font-black font-mono tabular-numbers text-purple-600 dark:text-purple-400">
+              <div className="text-2xl font-black font-mono tabular-numbers text-[#3B82F6]">
                 TZS {netEarningsTZS.toLocaleString()}
               </div>
-              <span className="text-[10px] text-emerald-500 font-semibold mt-1 block">
+              <span className="text-[10px] text-[#10B981] font-semibold mt-1 block">
                 ✓ Ready for instant mobile money transfer
               </span>
             </div>
           </div>
 
           {/* How Tipping Works Explanation */}
-          <div className="bg-white dark:bg-[#131927] border border-gray-200 dark:border-gray-800 rounded-3xl p-6 shadow-xs space-y-4">
-            <h3 className="font-extrabold text-base text-gray-900 dark:text-white flex items-center gap-2">
-              <HandCoins size={18} className="text-purple-600" />
+          <div className="bg-white border border-slate-200/80 rounded-3xl p-6 shadow-[0_4px_24px_-4px_rgba(15,23,42,0.06)] space-y-4">
+            <h3 className="font-extrabold text-base text-[#0F172A] flex items-center gap-2">
+              <HandCoins size={18} className="text-[#3B82F6]" />
               <span>How Creator Tipping Works on WaveLink</span>
             </h3>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs text-gray-600 dark:text-gray-300">
-              <div className="p-4 rounded-2xl bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700">
-                <span className="font-extrabold text-purple-600 block mb-1 text-sm">1. One-Tap Tip Button</span>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs text-slate-600">
+              <div className="p-4 rounded-2xl bg-[#F8FAFC] border border-slate-200">
+                <span className="font-extrabold text-[#3B82F6] block mb-1 text-sm">1. One-Tap Tip Button</span>
                 <p>Every post and reel in the feed includes a direct mobile money tipping icon for fans and admirers.</p>
               </div>
-              <div className="p-4 rounded-2xl bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700">
+              <div className="p-4 rounded-2xl bg-[#F8FAFC] border border-slate-200">
                 <span className="font-extrabold text-amber-600 block mb-1 text-sm">2. 10% Platform Fee</span>
                 <p>WaveLink deducts 10% for mobile carrier USSD fees and platform maintenance. 90% is credited directly to the creator.</p>
               </div>
-              <div className="p-4 rounded-2xl bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700">
-                <span className="font-extrabold text-emerald-600 block mb-1 text-sm">3. Instant AzamPay Settlement</span>
+              <div className="p-4 rounded-2xl bg-[#F8FAFC] border border-slate-200">
+                <span className="font-extrabold text-[#10B981] block mb-1 text-sm">3. Instant AzamPay Settlement</span>
                 <p>Supporters pay via Airtel Money, M-Pesa, or Tigo Pesa with instant USSD push authentication.</p>
               </div>
             </div>
           </div>
 
           {/* Tip Ledger History */}
-          <div className="bg-white dark:bg-[#131927] border border-gray-200 dark:border-gray-800 rounded-3xl p-6 shadow-xs space-y-4">
+          <div className="bg-white border border-slate-200/80 rounded-3xl p-6 shadow-[0_4px_24px_-4px_rgba(15,23,42,0.06)] space-y-4">
             <div className="flex items-center justify-between">
-              <h4 className="font-bold text-sm text-gray-900 dark:text-white">
+              <h4 className="font-bold text-sm text-[#0F172A]">
                 Recent Supporter Tips Received ({userTips.length})
               </h4>
             </div>
 
             {isLoadingTips ? (
-              <div className="py-8 text-center text-xs text-gray-400">Loading tip ledger...</div>
+              <div className="py-8 text-center text-xs text-slate-400">Loading tip ledger...</div>
             ) : userTips.length === 0 ? (
-              <div className="text-center py-8 text-xs text-gray-400">
+              <div className="text-center py-8 text-xs text-slate-400">
                 <Gift size={28} className="mx-auto mb-2 opacity-50" />
                 <p>No tips received yet. Keep posting high-vibe waves and reels to encourage supporter tips!</p>
               </div>
             ) : (
-              <div className="divide-y divide-gray-100 dark:divide-gray-800">
+              <div className="divide-y divide-slate-100">
                 {userTips.map((tip) => (
                   <div key={tip.id} className="py-3 flex items-center justify-between text-xs">
                     <div>
-                      <span className="font-bold text-gray-900 dark:text-white">
+                      <span className="font-bold text-[#0F172A]">
                         {tip.userName}
                       </span>
-                      <span className="text-[10px] text-gray-400 block font-mono">
+                      <span className="text-[10px] text-slate-400 block font-mono">
                         Ref: {tip.reference} • {new Date(tip.createdAt).toLocaleDateString()}
                       </span>
                     </div>
                     <div className="text-right">
-                      <span className="font-bold font-mono text-emerald-600 dark:text-emerald-400 block">
+                      <span className="font-bold font-mono text-[#10B981] block">
                         +TZS {(tip.netAmountTZS || tip.amountTZS * 0.9).toLocaleString()}
                       </span>
-                      <span className="text-[10px] text-gray-400">
+                      <span className="text-[10px] text-slate-400">
                         (Gross: TZS {tip.amountTZS.toLocaleString()}, 10% fee: TZS {(tip.platformFeeTZS || tip.amountTZS * 0.1).toLocaleString()})
                       </span>
                     </div>
@@ -728,38 +797,38 @@ export const MonetizationHub: React.FC<MonetizationHubProps> = ({
           ======================================================== */}
       {activeSection === 'boost' && (
         <div className="space-y-6">
-          <div className="bg-gradient-to-r from-amber-500/15 via-rose-500/15 to-purple-500/15 border-2 border-amber-400/60 dark:border-amber-500/40 rounded-3xl p-6 sm:p-8 space-y-4">
+          <div className="bg-white border border-slate-200/80 rounded-3xl p-6 sm:p-8 shadow-[0_4px_24px_-4px_rgba(15,23,42,0.06)] space-y-4">
             <div className="flex items-center justify-between flex-wrap gap-3">
               <div className="flex items-center gap-3">
-                <div className="p-3 rounded-2xl bg-gradient-to-tr from-amber-500 to-rose-500 text-white shadow-md shadow-amber-500/30">
+                <div className="p-3 rounded-2xl bg-gradient-to-tr from-[#3B82F6] to-[#10B981] text-white shadow-sm shadow-blue-500/20">
                   <Rocket size={24} />
                 </div>
                 <div>
-                  <div className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-amber-500 text-white font-black text-[10px] uppercase tracking-wider mb-1">
+                  <div className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-50 text-[#10B981] border border-emerald-200 font-black text-[10px] uppercase tracking-wider mb-1">
                     <span>Micro-Payment: 2,000 TZS</span>
                   </div>
-                  <h3 className="text-xl sm:text-2xl font-black text-gray-900 dark:text-white">
+                  <h3 className="text-xl sm:text-2xl font-black text-[#0F172A]">
                     Post Boosting Engine
                   </h3>
                 </div>
               </div>
-              <div className="px-4 py-2 rounded-2xl bg-white dark:bg-gray-800 border border-amber-300 dark:border-amber-800 text-xs font-bold text-amber-700 dark:text-amber-300">
+              <div className="px-4 py-2 rounded-2xl bg-blue-50 border border-blue-200 text-xs font-bold text-[#3B82F6]">
                 +300% Wave Impressions Guaranteed
               </div>
             </div>
 
-            <p className="text-xs sm:text-sm text-gray-700 dark:text-gray-300 leading-relaxed max-w-2xl">
-              Pay a quick micro-payment of <strong>2,000 TZS</strong> via Airtel Money or AzamPay to boost any of your wave posts. Boosted posts are highlighted with a glowing golden <strong>  Boosted</strong> badge and prioritized at the top of the feed for 48 hours.
+            <p className="text-xs sm:text-sm text-slate-600 leading-relaxed max-w-2xl">
+              Pay a quick micro-payment of <strong>2,000 TZS</strong> via Airtel Money or AzamPay to boost any of your wave posts. Boosted posts are highlighted with a glowing golden <strong>Boosted</strong> badge and prioritized at the top of the feed for 48 hours.
             </p>
 
             {/* Status Feedback Banner */}
             {boostStatus && (
-              <div className="p-3.5 rounded-2xl bg-amber-500/20 border border-amber-500/40 text-amber-900 dark:text-amber-200 text-xs flex items-center justify-between">
+              <div className="p-3.5 rounded-2xl bg-blue-50 border border-blue-200 text-[#0F172A] text-xs flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <Loader2 size={16} className="animate-spin text-amber-500" />
+                  <Loader2 size={16} className="animate-spin text-[#3B82F6]" />
                   <span className="font-bold">{boostStatus}</span>
                 </div>
-                <span className="text-[10px] font-mono uppercase bg-amber-500 text-white px-2 py-0.5 rounded-full font-bold">
+                <span className="text-[10px] font-mono uppercase bg-[#3B82F6] text-white px-2 py-0.5 rounded-full font-bold">
                   2,000 TZS
                 </span>
               </div>
@@ -770,13 +839,13 @@ export const MonetizationHub: React.FC<MonetizationHubProps> = ({
               <form onSubmit={handleTriggerPostBoost} className="space-y-4 pt-2">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1.5">
+                    <label className="block text-xs font-bold text-[#0F172A] mb-1.5">
                       Select Wave Post to Boost:
                     </label>
                     <select
                       value={selectedPostToBoost}
                       onChange={(e) => setSelectedPostToBoost(e.target.value)}
-                      className="w-full py-2.5 px-3 rounded-xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-xs text-gray-900 dark:text-white"
+                      className="w-full py-2.5 px-3 rounded-xl bg-[#F8FAFC] border border-slate-200 text-xs text-[#0F172A]"
                     >
                       {userPosts.map((post) => (
                         <option key={post.id} value={post.id}>
@@ -788,7 +857,7 @@ export const MonetizationHub: React.FC<MonetizationHubProps> = ({
 
                   {!isExemptFromPayments && (
                     <div>
-                      <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1.5">
+                      <label className="block text-xs font-bold text-[#0F172A] mb-1.5">
                         Airtel Money Phone Number:
                       </label>
                       <input
@@ -797,7 +866,7 @@ export const MonetizationHub: React.FC<MonetizationHubProps> = ({
                         value={boostPhone}
                         onChange={(e) => setBoostPhone(e.target.value)}
                         placeholder="e.g. 0784 123 456"
-                        className="w-full py-2.5 px-3 rounded-xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-xs text-gray-900 dark:text-white font-mono"
+                        className="w-full py-2.5 px-3 rounded-xl bg-[#F8FAFC] border border-slate-200 text-xs text-[#0F172A] font-mono"
                       />
                     </div>
                   )}
@@ -808,7 +877,7 @@ export const MonetizationHub: React.FC<MonetizationHubProps> = ({
                     type="button"
                     onClick={() => handleInstantFreeBoost(selectedPostToBoost)}
                     disabled={userPosts.length === 0}
-                    className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 via-rose-500 to-purple-600 hover:opacity-95 text-white font-extrabold text-xs sm:text-sm flex items-center gap-2 shadow-md transition disabled:opacity-40"
+                    className="px-6 py-2.5 rounded-2xl bg-[#10B981] hover:bg-emerald-600 text-white font-extrabold text-xs sm:text-sm flex items-center gap-2 shadow-sm transition disabled:opacity-40"
                   >
                     <Rocket size={15} />
                     <span>Boost Selected Post Free (0 TZS • VIP Exemption)</span>
@@ -817,7 +886,7 @@ export const MonetizationHub: React.FC<MonetizationHubProps> = ({
                   <button
                     type="submit"
                     disabled={userPosts.length === 0}
-                    className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-rose-500 hover:opacity-95 text-white font-extrabold text-xs sm:text-sm flex items-center gap-2 shadow-md transition disabled:opacity-40"
+                    className="px-6 py-2.5 rounded-2xl bg-[#3B82F6] hover:bg-blue-600 text-white font-extrabold text-xs sm:text-sm flex items-center gap-2 shadow-sm transition disabled:opacity-40"
                   >
                     <Rocket size={15} />
                     <span>Boost Selected Post for 2,000 TZS</span>
@@ -828,9 +897,9 @@ export const MonetizationHub: React.FC<MonetizationHubProps> = ({
 
             {/* Waiting for PIN in Boost */}
             {(boostStep === 'initiating' || boostStep === 'waiting_pin') && (
-              <div className="p-5 bg-white dark:bg-gray-900 rounded-2xl border border-amber-300 space-y-3 max-w-md mx-auto text-center">
-                <span className="text-xs font-bold text-amber-600 block">{boostStatus}</span>
-                <p className="text-xs text-gray-600 dark:text-gray-300">
+              <div className="p-5 bg-[#F8FAFC] rounded-2xl border border-blue-200 space-y-3 max-w-md mx-auto text-center">
+                <span className="text-xs font-bold text-[#3B82F6] block">{boostStatus}</span>
+                <p className="text-xs text-slate-600">
                   Enter your mobile money PIN to confirm the 2,000 TZS micro-payment:
                 </p>
                 <input
@@ -839,19 +908,19 @@ export const MonetizationHub: React.FC<MonetizationHubProps> = ({
                   value={boostPin}
                   onChange={(e) => setBoostPin(e.target.value.replace(/[^0-9]/g, ''))}
                   placeholder="Enter 4-digit PIN"
-                  className="w-48 mx-auto px-3 py-2 rounded-xl bg-gray-100 dark:bg-gray-800 border border-amber-400 text-center tracking-widest text-sm"
+                  className="w-48 mx-auto px-3 py-2 rounded-xl bg-white border border-blue-300 text-center tracking-widest text-sm text-[#0F172A]"
                 />
                 <div className="flex justify-center gap-2 pt-2">
                   <button
                     onClick={() => setBoostStep('idle')}
-                    className="px-4 py-1.5 rounded-xl text-xs text-gray-500"
+                    className="px-4 py-1.5 rounded-xl text-xs text-slate-500"
                   >
                     Cancel
                   </button>
                   <button
                     onClick={handleConfirmBoostPin}
                     disabled={boostPin.length < 4}
-                    className="px-5 py-1.5 rounded-xl bg-amber-500 text-white font-bold text-xs"
+                    className="px-5 py-1.5 rounded-xl bg-[#3B82F6] text-white font-bold text-xs"
                   >
                     Confirm PIN
                   </button>
@@ -860,7 +929,7 @@ export const MonetizationHub: React.FC<MonetizationHubProps> = ({
             )}
 
             {boostStep === 'success' && (
-              <div className="p-4 bg-emerald-50 dark:bg-emerald-950/40 rounded-2xl text-emerald-800 dark:text-emerald-200 text-center text-xs font-bold">
+              <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-2xl text-emerald-900 text-center text-xs font-bold">
                 ✓ Post boosted successfully! Your post now has priority ranking and the golden Boosted badge for 48 hours.
               </div>
             )}
@@ -873,18 +942,18 @@ export const MonetizationHub: React.FC<MonetizationHubProps> = ({
           ======================================================== */}
       {activeSection === 'affiliate' && (
         <div className="space-y-6">
-          <div className="bg-white dark:bg-[#131927] border border-gray-200 dark:border-gray-800 rounded-3xl p-6 shadow-xs space-y-4">
+          <div className="bg-white border border-slate-200/80 rounded-3xl p-6 shadow-[0_4px_24px_-4px_rgba(15,23,42,0.06)] space-y-4">
             <div className="flex items-center justify-between flex-wrap gap-2">
               <div>
-                <h3 className="font-extrabold text-base text-gray-900 dark:text-white flex items-center gap-2">
-                  <ShoppingBag size={18} className="text-purple-600" />
+                <h3 className="font-extrabold text-base text-[#0F172A] flex items-center gap-2">
+                  <ShoppingBag size={18} className="text-[#3B82F6]" />
                   <span>Native In-Feed Sponsored Ads & Affiliate Catalog</span>
                 </h3>
-                <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                <p className="text-xs text-slate-500 mt-0.5">
                   Subtle, non-intrusive sponsored posts match regular social wave styling with a tiny "Sponsored" tag and contextual shop buttons.
                 </p>
               </div>
-              <span className="px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-purple-100 text-purple-700 dark:bg-purple-950 dark:text-purple-300">
+              <span className="px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-blue-50 text-[#3B82F6] border border-blue-200">
                 1 Sponsored Wave per 8-10 Scrolls
               </span>
             </div>
@@ -894,33 +963,33 @@ export const MonetizationHub: React.FC<MonetizationHubProps> = ({
               {affiliateProducts.map((prod) => (
                 <div
                   key={prod.id}
-                  className="rounded-2xl border border-gray-200 dark:border-gray-800 overflow-hidden bg-gray-50/50 dark:bg-gray-800/40 flex flex-col justify-between p-4 space-y-3"
+                  className="rounded-2xl border border-slate-200 overflow-hidden bg-[#F8FAFC] flex flex-col justify-between p-4 space-y-3"
                 >
                   <div className="space-y-2">
-                    <div className="relative aspect-video rounded-xl overflow-hidden bg-black">
+                    <div className="relative aspect-video rounded-xl overflow-hidden bg-slate-900">
                       <img
                         src={prod.image}
                         alt={prod.title}
                         className="w-full h-full object-cover"
                       />
-                      <span className="absolute top-2 left-2 px-2 py-0.5 rounded-full bg-black/60 backdrop-blur-md text-[9px] font-bold text-white flex items-center gap-1">
-                        <Tag size={10} className="text-amber-400" />
+                      <span className="absolute top-2 left-2 px-2 py-0.5 rounded-full bg-white/90 backdrop-blur-md text-[9px] font-bold text-[#0F172A] flex items-center gap-1">
+                        <Tag size={10} className="text-[#10B981]" />
                         <span>Sponsored</span>
                       </span>
                     </div>
 
                     <div>
-                      <span className="text-[10px] font-bold uppercase tracking-wider text-purple-600 dark:text-purple-400 block">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-[#3B82F6] block">
                         {prod.brand} • {prod.category}
                       </span>
-                      <h4 className="font-bold text-xs text-gray-900 dark:text-white mt-0.5 line-clamp-2">
+                      <h4 className="font-bold text-xs text-[#0F172A] mt-0.5 line-clamp-2">
                         {prod.title}
                       </h4>
                       <div className="flex items-baseline justify-between mt-2">
-                        <span className="text-sm font-black font-mono text-gray-900 dark:text-white">
+                        <span className="text-sm font-black font-mono text-[#0F172A]">
                           {prod.price}
                         </span>
-                        <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold">
+                        <span className="text-[10px] text-[#10B981] font-bold">
                           {prod.commission}
                         </span>
                       </div>
@@ -931,7 +1000,7 @@ export const MonetizationHub: React.FC<MonetizationHubProps> = ({
                     href={prod.url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="w-full py-2 px-3 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs flex items-center justify-center gap-1.5 transition shadow-xs"
+                    className="w-full py-2 px-3 rounded-xl bg-[#3B82F6] hover:bg-blue-600 text-white font-bold text-xs flex items-center justify-center gap-1.5 transition shadow-xs"
                   >
                     <span>Shop Now</span>
                     <ExternalLink size={12} />

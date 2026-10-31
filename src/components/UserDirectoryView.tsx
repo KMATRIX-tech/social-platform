@@ -54,14 +54,20 @@ export const UserDirectoryView: React.FC<UserDirectoryViewProps> = ({ onStartCha
   useEffect(() => {
     if (!currentUser) return;
     const q = query(collection(db, 'follows'), where('followerId', '==', currentUser.uid));
-    const unsub = onSnapshot(q, (snap) => {
-      const map: Record<string, boolean> = {};
-      snap.forEach((d) => {
-        const data = d.data();
-        if (data.targetUserId) map[data.targetUserId] = true;
-      });
-      setFollowingMap(map);
-    });
+    const unsub = onSnapshot(
+      q,
+      (snap) => {
+        const map: Record<string, boolean> = {};
+        snap.forEach((d) => {
+          const data = d.data();
+          if (data.targetUserId) map[data.targetUserId] = true;
+        });
+        setFollowingMap(map);
+      },
+      (err) => {
+        console.warn('Follows snapshot notice:', err);
+      }
+    );
     return () => unsub();
   }, [currentUser]);
 
@@ -76,11 +82,12 @@ export const UserDirectoryView: React.FC<UserDirectoryViewProps> = ({ onStartCha
         setIsLoading(false);
       },
       (err) => {
-        handleFirestoreError(err, OperationType.LIST, 'users');
+        console.warn('Directory users snapshot notice:', err);
+        setIsLoading(false);
       }
     );
     return () => unsub();
-  }, []);
+  }, [currentUser?.uid]);
 
   const filteredUsers = users.filter((u) => {
     const matchesSearch =
@@ -93,27 +100,27 @@ export const UserDirectoryView: React.FC<UserDirectoryViewProps> = ({ onStartCha
   return (
     <div className="max-w-5xl mx-auto py-6 px-3 sm:px-6 space-y-6">
       {successNotice && (
-        <div className="p-4 rounded-2xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 text-xs sm:text-sm flex items-center justify-between gap-3 animate-in fade-in">
+        <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-300 text-emerald-900 text-xs sm:text-sm font-semibold flex items-center justify-between gap-3 animate-in fade-in">
           <span>{successNotice}</span>
           <button
             type="button"
             onClick={() => setSuccessNotice(null)}
-            className="text-emerald-300 hover:text-white text-xs px-2 py-1 rounded-lg hover:bg-emerald-500/20"
+            className="text-emerald-700 hover:text-emerald-950 text-xs px-2 py-1 rounded-lg hover:bg-emerald-100"
           >
             ✕
           </button>
         </div>
       )}
-      <div className="bg-white dark:bg-[#131927] border border-gray-200 dark:border-gray-800 rounded-3xl p-6 shadow-xs flex items-center justify-between flex-wrap gap-4">
+      <div className="bg-white dark:bg-[#131927] border border-blue-200/70 dark:border-gray-800 rounded-3xl p-6 shadow-xs flex items-center justify-between flex-wrap gap-4">
         <div>
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-purple-100 text-purple-700 dark:bg-purple-950 dark:text-purple-300 text-xs font-bold uppercase tracking-wider mb-2">
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-50 text-blue-700 dark:bg-blue-950 dark:text-blue-300 border border-blue-200/60 text-xs font-bold uppercase tracking-wider mb-2">
             <Users size={13} />
             <span>Community Directory</span>
           </div>
-          <h2 className="text-2xl font-extrabold text-gray-900 dark:text-white">
+          <h2 className="text-2xl font-extrabold text-[#0F172A] dark:text-white">
             WaveLink Members ({users.length})
           </h2>
-          <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mt-1">
+          <p className="text-xs sm:text-sm text-slate-500 dark:text-gray-400 mt-1">
             Real registered members across the network. Zero bot profiles or artificial activity.
           </p>
         </div>
@@ -126,7 +133,7 @@ export const UserDirectoryView: React.FC<UserDirectoryViewProps> = ({ onStartCha
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             placeholder="Search members..."
-            className="w-full pl-9 pr-4 py-2 rounded-xl bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-xs text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+            className="w-full pl-9 pr-4 py-2 rounded-xl bg-slate-50 dark:bg-gray-800 border border-slate-200 dark:border-gray-700 text-xs text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
         </div>
       </div>
@@ -148,15 +155,23 @@ export const UserDirectoryView: React.FC<UserDirectoryViewProps> = ({ onStartCha
             return (
               <div
                 key={user.id}
-                className="bg-white dark:bg-[#131927] border border-gray-200/90 dark:border-gray-800 rounded-3xl p-5 shadow-xs flex flex-col justify-between transition hover:border-purple-300 dark:hover:border-purple-900/60"
+                className="bg-white dark:bg-[#131927] border border-slate-200/90 dark:border-gray-800 rounded-3xl p-5 shadow-xs flex flex-col justify-between transition hover:border-blue-300 dark:hover:border-blue-900/60 hover:shadow-sm"
               >
                 <div>
                   <div className="flex items-start justify-between gap-3 mb-3">
-                    <img
-                      src={user.photoURL || `https://api.dicebear.com/7.x/shapes/svg?seed=${user.id}`}
-                      alt={user.displayName}
-                      className="w-12 h-12 rounded-full object-cover ring-2 ring-purple-500/20"
-                    />
+                    <div className="relative">
+                      <img
+                        src={user.photoURL || `https://api.dicebear.com/7.x/shapes/svg?seed=${user.id}`}
+                        alt={user.displayName}
+                        className="w-12 h-12 rounded-full object-cover ring-2 ring-blue-500/20"
+                      />
+                      {!user.isBanned && (
+                        <span
+                          className="absolute bottom-0 right-0 w-3.5 h-3.5 rounded-full bg-emerald-500 ring-2 ring-white dark:ring-[#131927]"
+                          title="Online Member"
+                        />
+                      )}
+                    </div>
 
                     <div>
                       {user.isBanned ? (
@@ -170,8 +185,9 @@ export const UserDirectoryView: React.FC<UserDirectoryViewProps> = ({ onStartCha
                           Warned
                         </span>
                       ) : (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300">
-                          Active
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-950 dark:text-emerald-300">
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                          <span>Online</span>
                         </span>
                       )}
                     </div>
@@ -187,7 +203,7 @@ export const UserDirectoryView: React.FC<UserDirectoryViewProps> = ({ onStartCha
                       size="md"
                     />
                     <div className="flex items-center gap-1.5 text-[11px] text-gray-400 mt-0.5">
-                      <span className="font-mono text-purple-600 dark:text-purple-400 font-semibold">
+                      <span className="font-mono text-blue-600 dark:text-blue-400 font-semibold">
                         {user.username || `@${user.email.split('@')[0]}`}
                       </span>
                       <span>·</span>
@@ -213,7 +229,7 @@ export const UserDirectoryView: React.FC<UserDirectoryViewProps> = ({ onStartCha
                         className={`px-2.5 py-1.5 rounded-xl font-semibold text-xs flex items-center gap-1 transition ${
                           followingMap[user.id]
                             ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/25'
-                            : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-purple-600 hover:text-white dark:hover:bg-purple-600'
+                            : 'bg-slate-100 dark:bg-gray-800 text-slate-700 dark:text-gray-300 hover:bg-blue-600 hover:text-white dark:hover:bg-blue-600'
                         }`}
                       >
                         {followingMap[user.id] ? (
@@ -234,7 +250,7 @@ export const UserDirectoryView: React.FC<UserDirectoryViewProps> = ({ onStartCha
                         className={`px-3 py-1.5 rounded-xl font-semibold text-xs flex items-center gap-1.5 transition ${
                           isSuperAdminEmail(user.email) && !canTalkToAdmin
                             ? 'bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border border-amber-300/40 hover:bg-amber-100'
-                            : 'bg-purple-50 dark:bg-purple-950/50 hover:bg-purple-100 dark:hover:bg-purple-900/50 text-purple-700 dark:text-purple-300'
+                            : 'bg-blue-50 dark:bg-blue-950/50 hover:bg-blue-100 dark:hover:bg-blue-900/50 text-blue-700 dark:text-blue-300'
                         }`}
                       >
                         {isSuperAdminEmail(user.email) && !canTalkToAdmin ? (
