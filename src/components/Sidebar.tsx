@@ -19,7 +19,8 @@ import {
   Crown,
   Sparkles,
   Coins,
-  CalendarDays
+  CalendarDays,
+  Flame
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -236,8 +237,16 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   showAdminTag={isAdmin}
                 />
               </div>
-              <div className="text-[10px] text-slate-400 truncate">
-                {currentUser?.email}
+              <div className="flex items-center gap-1.5 text-[10px] font-bold text-slate-500 mt-0.5">
+                <span className="inline-flex items-center gap-0.5 text-amber-600 font-extrabold">
+                  <Coins size={10} className="text-amber-500" />
+                  {(userProfile?.wavePoints ?? 10).toLocaleString()} pts
+                </span>
+                <span>•</span>
+                <span className="inline-flex items-center gap-0.5 text-orange-600 font-extrabold">
+                  <Flame size={10} className="fill-orange-500 text-orange-500" />
+                  {Math.max(1, userProfile?.loginStreak ?? 1)}d
+                </span>
               </div>
             </div>
           </div>

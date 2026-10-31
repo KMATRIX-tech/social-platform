@@ -13,6 +13,127 @@ import { doc, getDoc, setDoc, onSnapshot, serverTimestamp } from 'firebase/fires
 import { auth, db, ADMIN_EMAIL, isOwnerEmail, isAdminEmail, isSuperAdminEmail, handleFirestoreError, OperationType, cleanFirestoreData } from '../firebase';
 import { UserProfile } from '../types';
 
+export const DAILY_REWARD_SCHEDULE = [10, 15, 20, 25, 30, 40, 50];
+
+export function getLocalDateKey(date: Date = new Date()): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+export function getYesterdayDateKey(date: Date = new Date()): string {
+  const yesterday = new Date(date);
+  yesterday.setDate(yesterday.getDate() - 1);
+  return getLocalDateKey(yesterday);
+}
+
+interface LocalDailyRewardCache {
+  wavePoints: number;
+  loginStreak: number;
+  lastDailyRewardDate: string;
+  lastDailyRewardAmount: number;
+  totalLoginDays: number;
+}
+
+function getLocalDailyRewardCache(uid?: string | null): LocalDailyRewardCache | null {
+  try {
+    if (typeof window === 'undefined' || !uid) return null;
+    const raw = localStorage.getItem(`wavelink_daily_reward_${uid}`);
+    if (!raw) return null;
+    return JSON.parse(raw) as LocalDailyRewardCache;
+  } catch {
+    return null;
+  }
+}
+
+function setLocalDailyRewardCache(uid: string, data: LocalDailyRewardCache) {
+  try {
+    if (typeof window === 'undefined' || !uid) return;
+    localStorage.setItem(`wavelink_daily_reward_${uid}`, JSON.stringify(data));
+  } catch {
+    // Ignore storage quota issues
+  }
+}
+
+function computeDailyRewardState(
+  uid: string,
+  profileData?: Partial<UserProfile> | null
+): {
+  rewardFields: LocalDailyRewardCache;
+  newlyAwarded: boolean;
+  pointsAwarded: number;
+} {
+  const todayKey = getLocalDateKey();
+  const yesterdayKey = getYesterdayDateKey();
+  const localCache = getLocalDailyRewardCache(uid);
+
+  // Merge Firestore and local cache (take whichever has the most recent date / highest points)
+  const existingLastDate =
+    profileData?.lastDailyRewardDate && localCache?.lastDailyRewardDate
+      ? profileData.lastDailyRewardDate >= localCache.lastDailyRewardDate
+        ? profileData.lastDailyRewardDate
+        : localCache.lastDailyRewardDate
+      : profileData?.lastDailyRewardDate || localCache?.lastDailyRewardDate || '';
+
+  const existingPoints = Math.max(
+    profileData?.wavePoints ?? 0,
+    localCache?.wavePoints ?? 0
+  );
+  const existingStreak = Math.max(
+    profileData?.loginStreak ?? 0,
+    localCache?.loginStreak ?? 0
+  );
+  const existingLastAmount =
+    profileData?.lastDailyRewardAmount ??
+    localCache?.lastDailyRewardAmount ??
+    DAILY_REWARD_SCHEDULE[0];
+  const existingTotalDays = Math.max(
+    profileData?.totalLoginDays ?? 0,
+    localCache?.totalLoginDays ?? 0
+  );
+
+  // Already rewarded today
+  if (existingLastDate === todayKey && existingPoints > 0) {
+    const currentFields: LocalDailyRewardCache = {
+      wavePoints: existingPoints,
+      loginStreak: Math.max(1, existingStreak),
+      lastDailyRewardDate: todayKey,
+      lastDailyRewardAmount: existingLastAmount,
+      totalLoginDays: Math.max(1, existingTotalDays)
+    };
+    setLocalDailyRewardCache(uid, currentFields);
+    return {
+      rewardFields: currentFields,
+      newlyAwarded: false,
+      pointsAwarded: 0
+    };
+  }
+
+  // Award today's login bonus!
+  const isConsecutive = existingLastDate === yesterdayKey;
+  const nextStreak = isConsecutive ? existingStreak + 1 : 1;
+  const cycleIndex = (nextStreak - 1) % DAILY_REWARD_SCHEDULE.length;
+  const bonusPoints = DAILY_REWARD_SCHEDULE[cycleIndex];
+  const nextTotalPoints = existingPoints + bonusPoints;
+  const nextTotalDays = existingTotalDays + 1;
+
+  const updatedFields: LocalDailyRewardCache = {
+    wavePoints: nextTotalPoints,
+    loginStreak: nextStreak,
+    lastDailyRewardDate: todayKey,
+    lastDailyRewardAmount: bonusPoints,
+    totalLoginDays: nextTotalDays
+  };
+
+  setLocalDailyRewardCache(uid, updatedFields);
+  return {
+    rewardFields: updatedFields,
+    newlyAwarded: true,
+    pointsAwarded: bonusPoints
+  };
+}
+
 interface AuthContextType {
   currentUser: FirebaseUser | null;
   userProfile: UserProfile | null;
@@ -24,6 +145,9 @@ interface AuthContextType {
   isVerified: boolean;
   canTalkToAdmin: boolean;
   isLoading: boolean;
+  dailyRewardJustClaimed: { points: number; streak: number; totalPoints: number } | null;
+  dismissDailyRewardNotice: () => void;
+  claimDailyReward: () => Promise<{ claimed: boolean; pointsAwarded: number; streak: number; totalPoints: number }>;
   signInWithGoogle: () => Promise<void>;
   signInWithEmail: (email: string, pass: string) => Promise<void>;
   registerWithEmail: (email: string, pass: string, displayName: string, username?: string) => Promise<void>;
@@ -66,6 +190,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [globalToast, setGlobalToast] = useState<string | null>(null);
+  const [dailyRewardJustClaimed, setDailyRewardJustClaimed] = useState<{
+    points: number;
+    streak: number;
+    totalPoints: number;
+  } | null>(null);
 
   const showGlobalToast = (message: string) => {
     setGlobalToast(message);
@@ -74,7 +203,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }, 4500);
   };
 
-  // Sync profile document in Firestore
+  const dismissDailyRewardNotice = () => {
+    setDailyRewardJustClaimed(null);
+  };
+
+  // Sync profile document in Firestore & evaluate Daily Login Reward
   const syncUserProfileDoc = async (user: FirebaseUser, customName?: string, customUsername?: string) => {
     const userDocRef = doc(db, 'users', user.uid);
     const localPro = hasLocalProPass(user.uid);
@@ -86,6 +219,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const emailPrefix = user.email ? user.email.split('@')[0].toLowerCase().replace(/[^a-z0-9_]/g, '') : 'waver';
 
       if (!snap.exists()) {
+        const { rewardFields, newlyAwarded, pointsAwarded } = computeDailyRewardState(user.uid, null);
         const initialProfile: UserProfile = {
           id: user.uid,
           email: user.email || '',
@@ -106,6 +240,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           proAccentColor: isOwner ? 'gold' : (localPro ? 'emerald' : undefined),
           isOnline: true,
           lastSeenAt: nowIso,
+          ...rewardFields,
           createdAt: nowIso,
         };
         await setDoc(userDocRef, cleanFirestoreData({
@@ -113,8 +248,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           serverTimestamp: serverTimestamp()
         }), { merge: true });
         setUserProfile(initialProfile);
+
+        if (newlyAwarded) {
+          setDailyRewardJustClaimed({
+            points: pointsAwarded,
+            streak: rewardFields.loginStreak,
+            totalPoints: rewardFields.wavePoints
+          });
+          showGlobalToast(`🎁 Daily Login Bonus: +${pointsAwarded} WavePoints! (${rewardFields.loginStreak}-Day Streak 🔥)`);
+        }
       } else {
         const data = snap.data() as UserProfile;
+        const { rewardFields, newlyAwarded, pointsAwarded } = computeDailyRewardState(user.uid, data);
+
         if (isOwner && (!data.isPro || data.role !== 'super_admin' || !data.hasBlueStar)) {
           const ownerProfile: UserProfile = {
             ...data,
@@ -129,7 +275,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             username: data.username || '@keylan',
             savedPostIds: data.savedPostIds || [],
             isOnline: true,
-            lastSeenAt: nowIso
+            lastSeenAt: nowIso,
+            ...rewardFields
           };
           await setDoc(userDocRef, cleanFirestoreData(ownerProfile), { merge: true });
           setUserProfile(ownerProfile);
@@ -140,24 +287,77 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             hasBlueStar: Boolean(data.hasBlueStar || data.isPro || localPro),
             proBadge: data.proBadge || (localPro ? 'verified' : undefined),
             isOnline: true,
-            lastSeenAt: nowIso
+            lastSeenAt: nowIso,
+            ...rewardFields
           };
           setUserProfile(mergedProfile);
-          // Non-blocking presence + pro sync
+          // Non-blocking presence + pro + daily reward sync
           setDoc(
             userDocRef,
             cleanFirestoreData({
               isOnline: true,
               lastSeenAt: nowIso,
+              ...rewardFields,
               ...(localPro ? { isPro: true, hasBlueStar: true, proBadge: 'verified' } : {})
             }),
             { merge: true }
           ).catch(() => {});
         }
+
+        if (newlyAwarded) {
+          setDailyRewardJustClaimed({
+            points: pointsAwarded,
+            streak: rewardFields.loginStreak,
+            totalPoints: rewardFields.wavePoints
+          });
+          showGlobalToast(`🎁 Daily Login Bonus: +${pointsAwarded} WavePoints! (${rewardFields.loginStreak}-Day Streak 🔥)`);
+        }
       }
     } catch (err) {
       console.warn('Profile sync notice:', err);
     }
+  };
+
+  const claimDailyReward = async (): Promise<{
+    claimed: boolean;
+    pointsAwarded: number;
+    streak: number;
+    totalPoints: number;
+  }> => {
+    if (!currentUser) {
+      return { claimed: false, pointsAwarded: 0, streak: 0, totalPoints: 0 };
+    }
+    const { rewardFields, newlyAwarded, pointsAwarded } = computeDailyRewardState(
+      currentUser.uid,
+      userProfile
+    );
+    setUserProfile((prev) => (prev ? { ...prev, ...rewardFields } : prev));
+    if (newlyAwarded) {
+      setDailyRewardJustClaimed({
+        points: pointsAwarded,
+        streak: rewardFields.loginStreak,
+        totalPoints: rewardFields.wavePoints
+      });
+      showGlobalToast(`🎁 Daily Login Bonus: +${pointsAwarded} WavePoints! (${rewardFields.loginStreak}-Day Streak 🔥)`);
+    }
+    try {
+      await setDoc(
+        doc(db, 'users', currentUser.uid),
+        cleanFirestoreData({
+          ...rewardFields,
+          updatedAt: new Date().toISOString()
+        }),
+        { merge: true }
+      );
+    } catch {
+      // Fallback already cached locally
+    }
+    return {
+      claimed: newlyAwarded,
+      pointsAwarded: newlyAwarded ? pointsAwarded : rewardFields.lastDailyRewardAmount,
+      streak: rewardFields.loginStreak,
+      totalPoints: rewardFields.wavePoints
+    };
   };
 
   useEffect(() => {
@@ -172,13 +372,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const localPro = hasLocalProPass(user.uid);
         const emailPrefix = user.email ? user.email.split('@')[0].toLowerCase().replace(/[^a-z0-9_]/g, '') : 'waver';
         const nowIso = new Date().toISOString();
+        const { rewardFields, newlyAwarded, pointsAwarded } = computeDailyRewardState(user.uid, null);
+
+        if (newlyAwarded) {
+          setDailyRewardJustClaimed({
+            points: pointsAwarded,
+            streak: rewardFields.loginStreak,
+            totalPoints: rewardFields.wavePoints
+          });
+          showGlobalToast(`🎁 Daily Login Bonus: +${pointsAwarded} WavePoints! (${rewardFields.loginStreak}-Day Streak 🔥)`);
+        }
 
         setUserProfile((prev) => prev ? {
           ...prev,
           isPro: Boolean(prev.isPro || isOwner || localPro),
           hasBlueStar: Boolean(prev.hasBlueStar || prev.isPro || isOwner || localPro),
           isOnline: true,
-          lastSeenAt: nowIso
+          lastSeenAt: nowIso,
+          wavePoints: Math.max(prev.wavePoints ?? 0, rewardFields.wavePoints),
+          loginStreak: Math.max(prev.loginStreak ?? 0, rewardFields.loginStreak),
+          lastDailyRewardDate: rewardFields.lastDailyRewardDate,
+          lastDailyRewardAmount: rewardFields.lastDailyRewardAmount,
+          totalLoginDays: Math.max(prev.totalLoginDays ?? 0, rewardFields.totalLoginDays)
         } : ({
           id: user.uid,
           email: user.email || '',
@@ -199,6 +414,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           proAccentColor: isOwner ? 'gold' : (localPro ? 'emerald' : undefined),
           isOnline: true,
           lastSeenAt: nowIso,
+          ...rewardFields,
           createdAt: nowIso
         }));
         setIsLoading(false);
@@ -216,11 +432,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             if (docSnap.exists()) {
               const snapData = docSnap.data() as UserProfile;
               const currentLocalPro = hasLocalProPass(user.uid);
+              const localReward = getLocalDailyRewardCache(user.uid);
               setUserProfile({
                 ...snapData,
                 isPro: Boolean(snapData.isPro || currentLocalPro),
                 hasBlueStar: Boolean(snapData.hasBlueStar || snapData.isPro || currentLocalPro),
-                proBadge: snapData.proBadge || (currentLocalPro ? 'verified' : undefined)
+                proBadge: snapData.proBadge || (currentLocalPro ? 'verified' : undefined),
+                wavePoints: Math.max(snapData.wavePoints ?? 0, localReward?.wavePoints ?? 0),
+                loginStreak: Math.max(snapData.loginStreak ?? 0, localReward?.loginStreak ?? 1),
+                lastDailyRewardDate: snapData.lastDailyRewardDate || localReward?.lastDailyRewardDate,
+                lastDailyRewardAmount: snapData.lastDailyRewardAmount ?? localReward?.lastDailyRewardAmount ?? 10,
+                totalLoginDays: Math.max(snapData.totalLoginDays ?? 0, localReward?.totalLoginDays ?? 1)
               });
             }
           },
@@ -242,6 +464,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (unsubscribeDoc) unsubscribeDoc();
         if (presenceInterval) clearInterval(presenceInterval);
         setUserProfile(null);
+        setDailyRewardJustClaimed(null);
         setIsLoading(false);
       }
     });
@@ -624,6 +847,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         isVerified,
         canTalkToAdmin,
         isLoading,
+        dailyRewardJustClaimed,
+        dismissDailyRewardNotice,
+        claimDailyReward,
         signInWithGoogle,
         signInWithEmail,
         registerWithEmail,

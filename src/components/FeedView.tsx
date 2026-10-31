@@ -850,14 +850,34 @@ export const FeedView: React.FC<FeedViewProps> = ({
             </div>
           )}
 
-          {/* Crisp Pure White Welcome Hero Card */}
+          {/* Crisp Pure White Welcome Hero & Profile Header Card */}
           <div className="relative overflow-hidden rounded-3xl p-6 sm:p-7 bg-[#FFFFFF] border border-slate-200/90 shadow-[0_2px_16px_-4px_rgba(15,23,42,0.05)] text-[#0F172A]">
             <div className="relative z-10 flex items-center justify-between flex-wrap gap-4">
               <div>
-                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-50 text-[#3B82F6] text-[11px] font-extrabold uppercase tracking-wider mb-2.5 border border-blue-200/80">
-                  <Sparkles size={12} className="text-[#10B981]" />
-                  <span>WaveLink Community Feed</span>
+                <div className="flex items-center gap-2 flex-wrap mb-2.5">
+                  <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-50 text-[#3B82F6] text-[11px] font-extrabold uppercase tracking-wider border border-blue-200/80">
+                    <Sparkles size={12} className="text-[#10B981]" />
+                    <span>WaveLink Community Feed</span>
+                  </div>
+
+                  {/* Daily Login Bonus & Streak Header Pill */}
+                  <button
+                    type="button"
+                    onClick={() => onNavigateTab && onNavigateTab('settings')}
+                    className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-50 hover:bg-amber-100/80 text-amber-800 border border-amber-200/90 text-[11px] font-extrabold transition"
+                    title="View your Daily Login Reward & Streak in Profile"
+                  >
+                    <Coins size={12} className="text-amber-500" />
+                    <span>{(userProfile?.wavePoints ?? 10).toLocaleString()} WavePoints</span>
+                    <span className="text-slate-300">•</span>
+                    <Flame size={12} className="fill-orange-500 text-orange-500" />
+                    <span>{Math.max(1, userProfile?.loginStreak ?? 1)}-Day Streak</span>
+                    <span className="px-1.5 py-0.2 rounded-full bg-emerald-100 text-[#10B981] text-[10px]">
+                      +{userProfile?.lastDailyRewardAmount ?? 10} Today ✓
+                    </span>
+                  </button>
                 </div>
+
                 <h2 className="text-xl sm:text-2xl lg:text-[26px] font-extrabold tracking-tight text-[#0F172A]">
                   Welcome back, {userProfile?.displayName?.split(' ')[0] || 'Friend'}!
                 </h2>

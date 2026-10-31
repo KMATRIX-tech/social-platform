@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
-import { useAuth } from '../context/AuthContext';
+import { useAuth, DAILY_REWARD_SCHEDULE, getLocalDateKey } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { ThemeMode, ProBorderEffect, ProAccentColor } from '../types';
 import { CrystalBadge } from './CrystalBadge';
 import { SupportDeskView } from './SupportDeskView';
 import { MobileMoneyPaymentModal } from './MobileMoneyPaymentModal';
+import { DailyRewardModal } from './DailyRewardModal';
 import { PRO_TIERS } from '../services/paymentService';
 import {
   Settings,
@@ -28,7 +29,10 @@ import {
   CreditCard,
   Calendar,
   ArrowRight,
-  Flame
+  Flame,
+  Coins,
+  Gift,
+  Trophy
 } from 'lucide-react';
 
 import { LegalModal, LegalDocType } from './LegalModals';
@@ -40,6 +44,7 @@ export const SettingsView: React.FC = () => {
 
   const [activeSettingsSection, setActiveSettingsSection] = useState<'profile' | 'pro' | 'support' | 'legal'>('profile');
   const [selectedLegalDoc, setSelectedLegalDoc] = useState<LegalDocType | null>(null);
+  const [isDailyRewardModalOpen, setIsDailyRewardModalOpen] = useState(false);
 
   // Profile form state
   const [displayName, setDisplayName] = useState(userProfile?.displayName || currentUser?.displayName || '');
@@ -56,6 +61,16 @@ export const SettingsView: React.FC = () => {
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
 
   const isProUser = isProEffective;
+
+  // Daily Login Reward & Habitual Engagement metrics
+  const todayKey = getLocalDateKey();
+  const isClaimedToday = userProfile?.lastDailyRewardDate === todayKey;
+  const currentStreak = Math.max(1, userProfile?.loginStreak ?? 1);
+  const totalWavePoints = userProfile?.wavePoints ?? DAILY_REWARD_SCHEDULE[0];
+  const todayBonus = userProfile?.lastDailyRewardAmount ?? DAILY_REWARD_SCHEDULE[(currentStreak - 1) % DAILY_REWARD_SCHEDULE.length];
+  const activeCycleIndex = (currentStreak - 1) % DAILY_REWARD_SCHEDULE.length;
+  const nextCycleIndex = currentStreak % DAILY_REWARD_SCHEDULE.length;
+  const tomorrowBonus = DAILY_REWARD_SCHEDULE[nextCycleIndex];
 
   // File upload for profile picture from local folders (compressed for Firestore)
   const handleAvatarFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -121,72 +136,233 @@ export const SettingsView: React.FC = () => {
 
   return (
     <div className="max-w-5xl mx-auto py-6 px-4 sm:px-6 space-y-6">
-      {/* Header Banner */}
-      <div className="bg-white border border-slate-200/80 rounded-3xl p-6 shadow-[0_4px_24px_-4px_rgba(15,23,42,0.06)] flex items-center justify-between flex-wrap gap-4">
-        <div>
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-50 text-[#3B82F6] border border-blue-200/60 text-xs font-bold uppercase tracking-wider mb-2">
-            <Settings size={13} />
-            <span>Settings & Preferences</span>
+      {/* User Profile Header with Daily Login Reward & Habitual Engagement Tracker */}
+      <div className="bg-white border border-slate-200/80 rounded-3xl p-6 shadow-[0_4px_24px_-4px_rgba(15,23,42,0.06)] space-y-5">
+        <div className="flex items-start justify-between flex-wrap gap-4">
+          {/* Left: Avatar & Identity */}
+          <div className="flex items-center gap-4">
+            <div className="relative">
+              <img
+                src={
+                  photoURL ||
+                  userProfile?.photoURL ||
+                  `https://api.dicebear.com/7.x/shapes/svg?seed=${currentUser?.uid || 'user'}`
+                }
+                alt="Profile Avatar"
+                className={`w-16 h-16 sm:w-20 sm:h-20 rounded-full object-cover ${
+                  isProUser && proBorderEffect !== 'none'
+                    ? borderOptions.find((b) => b.id === proBorderEffect)?.ringClass
+                    : 'ring-2 ring-blue-500/20'
+                }`}
+              />
+              {isProUser && (
+                <span className="absolute -bottom-1 -right-1 p-1.5 rounded-full bg-amber-500 text-white shadow-xs">
+                  <Crown size={13} />
+                </span>
+              )}
+            </div>
+
+            <div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <CrystalBadge
+                  email={currentUser?.email}
+                  name={userProfile?.displayName || displayName || 'Waver'}
+                  isPro={isProUser}
+                  hasBlueStar={isProUser}
+                  isSubAdmin={isSubAdmin}
+                  size="md"
+                  showAdminTag={isAdmin}
+                />
+                <span className="text-xs font-mono font-bold text-[#3B82F6] bg-blue-50 px-2.5 py-0.5 rounded-full border border-blue-200/70">
+                  {userProfile?.username || username}
+                </span>
+              </div>
+              <p className="text-xs sm:text-sm text-slate-600 mt-1 max-w-xl">
+                {userProfile?.bio || bio || 'Connecting on WaveLink 🌊'}
+              </p>
+            </div>
           </div>
-          <h2 className="text-2xl font-extrabold text-[#0F172A]">
-            Account Preferences & WaveLink Pro
-          </h2>
-          <p className="text-xs sm:text-sm text-slate-500 mt-1">
-            Manage your personal profile identity, WaveLink Pro subscription, and support desk inquiries.
-          </p>
+
+          {/* Right: Daily Reward & WavePoints Header Badges */}
+          <div className="flex items-center gap-2.5 flex-wrap">
+            <div
+              onClick={() => setIsDailyRewardModalOpen(true)}
+              className="cursor-pointer px-4 py-2.5 rounded-2xl bg-gradient-to-r from-amber-50 to-orange-50/80 border border-amber-200/90 hover:border-amber-300 transition flex items-center gap-2.5 shadow-2xs"
+              title="Click to view 7-day login reward schedule"
+            >
+              <div className="p-2 rounded-xl bg-amber-500 text-white shadow-2xs">
+                <Coins size={16} />
+              </div>
+              <div>
+                <span className="text-[10px] font-extrabold uppercase tracking-wider text-amber-700 block">
+                  WavePoints Balance
+                </span>
+                <div className="flex items-baseline gap-1.5">
+                  <span className="text-base sm:text-lg font-black text-[#0F172A] font-mono">
+                    {totalWavePoints.toLocaleString()}
+                  </span>
+                  <span className="text-[11px] font-extrabold text-[#10B981]">
+                    (+{todayBonus} today)
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <div
+              onClick={() => setIsDailyRewardModalOpen(true)}
+              className="cursor-pointer px-4 py-2.5 rounded-2xl bg-gradient-to-r from-blue-50 to-emerald-50 border border-blue-200/80 hover:border-blue-300 transition flex items-center gap-2.5 shadow-2xs"
+              title="Daily Login Streak"
+            >
+              <div className="p-2 rounded-xl bg-gradient-to-tr from-[#3B82F6] to-[#10B981] text-white shadow-2xs">
+                <Flame size={16} />
+              </div>
+              <div>
+                <span className="text-[10px] font-extrabold uppercase tracking-wider text-[#3B82F6] block">
+                  Daily Login Streak
+                </span>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-base sm:text-lg font-black text-[#0F172A]">
+                    {currentStreak} {currentStreak === 1 ? 'Day' : 'Days'} 🔥
+                  </span>
+                  {isClaimedToday && (
+                    <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-extrabold">
+                      Claimed ✓
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
 
-        {/* Section Tabs */}
-        <div className="flex rounded-2xl bg-[#F8FAFC] border border-slate-200/80 p-1 text-xs font-semibold overflow-x-auto">
-          <button
-            onClick={() => setActiveSettingsSection('profile')}
-            className={`px-4 py-2 rounded-xl transition flex items-center gap-1.5 whitespace-nowrap ${
-              activeSettingsSection === 'profile'
-                ? 'bg-[#3B82F6] text-white shadow-xs'
-                : 'text-slate-600 hover:text-[#0F172A]'
-            }`}
-          >
-            <User size={14} />
-            <span>Profile & Identity</span>
-          </button>
+        {/* 7-Day Daily Login Bonus Bar in Profile Header */}
+        <div className="p-4 rounded-2xl bg-[#F8FAFC] border border-slate-200/90 space-y-3">
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <div className="flex items-center gap-2">
+              <Gift size={15} className="text-[#3B82F6]" />
+              <span className="text-xs font-extrabold text-[#0F172A]">
+                Daily Login Reward Progress
+              </span>
+              <span className="text-[11px] text-slate-500">
+                • Next login bonus: <strong className="text-[#10B981]">+{tomorrowBonus} pts</strong>
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setIsDailyRewardModalOpen(true)}
+              className="text-xs font-extrabold text-[#3B82F6] hover:underline flex items-center gap-1"
+            >
+              <span>View Reward Details</span>
+              <ArrowRight size={12} />
+            </button>
+          </div>
 
-          <button
-            onClick={() => setActiveSettingsSection('pro')}
-            className={`px-4 py-2 rounded-xl transition flex items-center gap-1.5 whitespace-nowrap ${
-              activeSettingsSection === 'pro'
-                ? 'bg-gradient-to-r from-[#3B82F6] to-[#10B981] text-white shadow-xs'
-                : 'text-slate-600 hover:text-[#0F172A]'
-            }`}
-          >
-            <Crown size={14} className={isProUser ? 'text-amber-400' : 'text-slate-400'} />
-            <span>WaveLink Pro {isProUser ? '✓' : ''}</span>
-          </button>
+          <div className="grid grid-cols-7 gap-1.5 sm:gap-2">
+            {DAILY_REWARD_SCHEDULE.map((pts, idx) => {
+              const isCompleted = idx < activeCycleIndex || (idx === activeCycleIndex && isClaimedToday);
+              const isToday = idx === activeCycleIndex;
+              const isMilestone = idx === DAILY_REWARD_SCHEDULE.length - 1;
 
-          <button
-            onClick={() => setActiveSettingsSection('support')}
-            className={`px-4 py-2 rounded-xl transition flex items-center gap-1.5 whitespace-nowrap ${
-              activeSettingsSection === 'support'
-                ? 'bg-[#3B82F6] text-white shadow-xs'
-                : 'text-slate-600 hover:text-[#0F172A]'
-            }`}
-          >
-            <HelpCircle size={14} />
-            <span>Support Desk</span>
-          </button>
+              return (
+                <div
+                  key={idx}
+                  onClick={() => setIsDailyRewardModalOpen(true)}
+                  className={`cursor-pointer p-2 rounded-xl border text-center flex flex-col items-center justify-center transition ${
+                    isToday
+                      ? 'bg-white border-[#3B82F6] ring-2 ring-[#3B82F6]/20 shadow-2xs'
+                      : isCompleted
+                      ? 'bg-emerald-50/80 border-emerald-200 text-emerald-900'
+                      : 'bg-white/70 border-slate-200/80 text-slate-400'
+                  }`}
+                >
+                  <span className="text-[9px] sm:text-[10px] font-bold uppercase text-slate-500">
+                    Day {idx + 1}
+                  </span>
+                  <div className="my-1">
+                    {isCompleted ? (
+                      <CheckCircle2 size={14} className="text-[#10B981]" />
+                    ) : isMilestone ? (
+                      <Trophy size={14} className="text-amber-500" />
+                    ) : (
+                      <Sparkles size={13} className="text-[#3B82F6]" />
+                    )}
+                  </div>
+                  <span
+                    className={`text-[10px] sm:text-xs font-black ${
+                      isToday ? 'text-[#3B82F6]' : isCompleted ? 'text-[#10B981]' : 'text-slate-600'
+                    }`}
+                  >
+                    +{pts} pts
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
 
-          <button
-            onClick={() => setActiveSettingsSection('legal')}
-            className={`px-4 py-2 rounded-xl transition flex items-center gap-1.5 whitespace-nowrap ${
-              activeSettingsSection === 'legal'
-                ? 'bg-[#3B82F6] text-white shadow-xs'
-                : 'text-slate-600 hover:text-[#0F172A]'
-            }`}
-          >
-            <ShieldCheck size={14} />
-            <span>Legal Center</span>
-          </button>
+        {/* Navigation Tabs Bar */}
+        <div className="pt-2 border-t border-slate-100 flex items-center justify-between flex-wrap gap-3">
+          <div className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-500">
+            <Settings size={14} className="text-[#3B82F6]" />
+            <span>Account Preferences &amp; WaveLink Pro</span>
+          </div>
+
+          <div className="flex rounded-2xl bg-[#F8FAFC] border border-slate-200/80 p-1 text-xs font-semibold overflow-x-auto">
+            <button
+              onClick={() => setActiveSettingsSection('profile')}
+              className={`px-4 py-2 rounded-xl transition flex items-center gap-1.5 whitespace-nowrap ${
+                activeSettingsSection === 'profile'
+                  ? 'bg-[#3B82F6] text-white shadow-xs'
+                  : 'text-slate-600 hover:text-[#0F172A]'
+              }`}
+            >
+              <User size={14} />
+              <span>Profile & Identity</span>
+            </button>
+
+            <button
+              onClick={() => setActiveSettingsSection('pro')}
+              className={`px-4 py-2 rounded-xl transition flex items-center gap-1.5 whitespace-nowrap ${
+                activeSettingsSection === 'pro'
+                  ? 'bg-gradient-to-r from-[#3B82F6] to-[#10B981] text-white shadow-xs'
+                  : 'text-slate-600 hover:text-[#0F172A]'
+              }`}
+            >
+              <Crown size={14} className={isProUser ? 'text-amber-400' : 'text-slate-400'} />
+              <span>WaveLink Pro {isProUser ? '✓' : ''}</span>
+            </button>
+
+            <button
+              onClick={() => setActiveSettingsSection('support')}
+              className={`px-4 py-2 rounded-xl transition flex items-center gap-1.5 whitespace-nowrap ${
+                activeSettingsSection === 'support'
+                  ? 'bg-[#3B82F6] text-white shadow-xs'
+                  : 'text-slate-600 hover:text-[#0F172A]'
+              }`}
+            >
+              <HelpCircle size={14} />
+              <span>Support Desk</span>
+            </button>
+
+            <button
+              onClick={() => setActiveSettingsSection('legal')}
+              className={`px-4 py-2 rounded-xl transition flex items-center gap-1.5 whitespace-nowrap ${
+                activeSettingsSection === 'legal'
+                  ? 'bg-[#3B82F6] text-white shadow-xs'
+                  : 'text-slate-600 hover:text-[#0F172A]'
+              }`}
+            >
+              <ShieldCheck size={14} />
+              <span>Legal Center</span>
+            </button>
+          </div>
         </div>
       </div>
+
+      <DailyRewardModal
+        isOpen={isDailyRewardModalOpen}
+        onClose={() => setIsDailyRewardModalOpen(false)}
+      />
 
       {activeSettingsSection === 'support' && (
         <SupportDeskView />

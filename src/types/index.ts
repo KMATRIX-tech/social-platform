@@ -33,6 +33,12 @@ export interface UserProfile {
   isOnline?: boolean;
   lastSeen?: string;
   lastSeenAt?: string;
+  // Daily Login Reward & Habitual Engagement System
+  wavePoints?: number;
+  loginStreak?: number;
+  lastDailyRewardDate?: string; // YYYY-MM-DD local date
+  lastDailyRewardAmount?: number;
+  totalLoginDays?: number;
   createdAt: string;
   updatedAt?: string;
 }
